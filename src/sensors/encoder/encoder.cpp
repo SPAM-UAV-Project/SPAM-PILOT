@@ -1,6 +1,7 @@
 #include "encoder.hpp"
 #include "as5600.hpp"
 #include <Arduino.h>
+#include "pin_defs.hpp"
 
 namespace sensors::encoder
 {
