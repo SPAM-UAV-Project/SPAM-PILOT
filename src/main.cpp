@@ -7,7 +7,4 @@ void setup()
     sensors::imu::initIMU();  
 }
 
-void loop() 
-{   
-    delay(10);
-}
+void loop() {}

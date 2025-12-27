@@ -20,10 +20,11 @@ namespace sensors::imu
 
         mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_4);
         mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_500);
-        mpu.setRate(4); // 200 Hz
+        mpu.setDLPFMode(0);
+        mpu.setRate(7); // 1000 Hz from 8000 Hz / (1 + 7)
 
         mpu.setIntDataReadyEnabled(true);
-        mpu.setInterruptMode(false); // active high
+        mpu.setInterruptMode(false);
         mpu.setInterruptDrive(false);
         mpu.setInterruptLatch(false);
         mpu.setInterruptLatchClear(true);
@@ -46,19 +47,19 @@ namespace sensors::imu
     void imuTask(void *pvParameters)
     {
         int16_t ax_raw, ay_raw, az_raw, gx_raw, gy_raw, gz_raw;
-        float ax, ay, az, gx, gy, gz;
-
         while (1){
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
             // read imu data
             mpu.getMotion6(&ax_raw, &ay_raw, &az_raw, &gx_raw, &gy_raw, &gz_raw);
 
-            ax = ax_raw / 8192.0f * 9.81f;
-            ay = ay_raw / 8192.0f * 9.81f;
-            az = az_raw / 8192.0f * 9.81f;
-            gx = gx_raw / 65.5f;
-            gy = gy_raw / 65.5f;
-            gz = gz_raw / 65.5f;
+            accel_data << ax_raw / 8192.0f * 9.81f,
+                          ay_raw / 8192.0f * 9.81f,
+                          az_raw / 8192.0f * 9.81f;
+            gyro_data << gx_raw / 65.5f,
+                         gy_raw / 65.5f,
+                         gz_raw / 65.5f;
+
         }
     }
 }

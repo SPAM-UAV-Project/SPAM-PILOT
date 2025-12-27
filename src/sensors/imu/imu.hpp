@@ -2,12 +2,17 @@
 #define IMU_HPP
 
 #include <Arduino.h>
+#include "ArduinoEigen/Eigen/Dense"
 
 namespace sensors::imu
 {
     inline xTaskHandle imuTaskHandle = NULL;
 
-    void IRAM_ATTR imuISR();
+    inline Eigen::Vector3f accel_data;
+    inline Eigen::Vector3f gyro_data;
+    inline Eigen::Vector3f mag_data; // placeholder for future magnetometer
+
+    void imuISR();
     void initIMU();
     void imuTask(void *pvParameters);
 }
