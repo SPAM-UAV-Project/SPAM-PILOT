@@ -1,5 +1,5 @@
 #include "rotor_control.hpp"
-#include "sensors/encoder.hpp"
+#include "sensors/encoder/encoder.hpp"
 
 #include "DShotRMT.h"
 
