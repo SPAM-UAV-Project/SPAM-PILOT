@@ -83,9 +83,9 @@
     "doxdocgen.file.fileOrder": [
         "file",
         "brief",
-        "date"
+        "details"
     ],
-    "doxdocgen.file.fileTemplate": "@file {name}\n@author Tommy (Ziyang) Zhang",
+    "doxdocgen.file.fileTemplate": "@file {name}",
     "doxdocgen.c.triggerSequence": "/**",
     "doxdocgen.c.firstLine": "/**",
     "doxdocgen.c.lastLine": " */",

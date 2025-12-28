@@ -1,7 +1,9 @@
 #include "rotor_control.hpp"
 #include "sensors/encoder/encoder.hpp"
-
 #include "DShotRMT.h"
+#include "msgs/EncoderMsg.hpp"
+#include "msgs/ThrustSetpointMsg.hpp"
+#include "msgs/TorqueSetpointMsg.hpp"
 
 // logic as described in "Flight Performance of a Swashplateless Micro Air Vehicle" by James Paulos and Mark Yim
 // https://ieeexplore.ieee.org/document/7139936
@@ -12,6 +14,10 @@ namespace control::rotor
     static float control_input[4] = {0.0f, 0.0f, 0.0f, 0.0f}; // roll, pitch, yaw, thrust
     static SemaphoreHandle_t control_mutex = xSemaphoreCreateMutex();
     
+    // subscribers
+    Topic<EncoderMsg>::Subscriber encoder_sub;
+    Topic<ThrustSetpointMsg>::Subscriber thrust_sp_sub;
+    Topic<TorqueSetpointMsg>::Subscriber torque_sp_sub;
 
     // timer interrupts
     static hw_timer_t* rotorControlTimer = NULL;
@@ -50,47 +56,37 @@ namespace control::rotor
     {
         float amplitude = 0.0f;
         float phase = 0.0f;
-        float local_control_input[4] = {0.0f, 0.0f, 0.0f, 0.0f};
         float output_throttle_fraction;
+
+        EncoderMsg enc_local;
+        ThrustSetpointMsg thrust_sp_local;
+        TorqueSetpointMsg torque_sp_local;
 
         while (true)
         {
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);            
 
-            // copy control inputs atomically
-            xSemaphoreTake(control_mutex, portMAX_DELAY);
-            local_control_input[0] = control_input[0];
-            local_control_input[1] = control_input[1];
-            local_control_input[2] = control_input[2];
-            local_control_input[3] = control_input[3];
-            xSemaphoreGive(control_mutex);
+            // receive data
+            encoder_sub.pull_if_new(enc_local);
+            thrust_sp_sub.pull_if_new(thrust_sp_local);
+            torque_sp_sub.pull_if_new(torque_sp_local);
 
-            if (local_control_input[0] != 0.0f || local_control_input[1] != 0.0f)
+            if (torque_sp_local.setpoint.x() != 0.0f || torque_sp_local.setpoint.y() != 0.0f)
             {
                 // for swashplateless rotor control, we need to find an amplitude and a phase lag
-                amplitude = AMP_OFFSET + sqrt(local_control_input[0] * local_control_input[0] + local_control_input[1] * local_control_input[1]);
-                phase = atan2(local_control_input[1], local_control_input[0]);
+                amplitude = AMP_OFFSET + sqrt(SQ(torque_sp_local.setpoint.x()) + SQ(torque_sp_local.setpoint.y()));
+                phase = atan2(torque_sp_local.setpoint.y(), torque_sp_local.setpoint.x());
 
                 // convert to an oscillatory throttle response
-                output_throttle_fraction = local_control_input[3] + amplitude * cos(sensors::encoder::enc_angle_rad.load() - phase);
+                output_throttle_fraction = thrust_sp_local.setpoint + amplitude * cos(enc_local.angle_rad - phase);
             } else {
                 // no pitch or roll command, just set throttle directly
-                output_throttle_fraction = local_control_input[3];
+                output_throttle_fraction = thrust_sp_local.setpoint;
             }
             sendToDshot(output_throttle_fraction);
         }
     }
-
-    void setControlInputs(float roll, float pitch, float yaw, float thrust)
-    {
-        xSemaphoreTake(control_mutex, portMAX_DELAY);
-        control_input[0] = roll;
-        control_input[1] = pitch;
-        control_input[2] = yaw;
-        control_input[3] = thrust;
-        xSemaphoreGive(control_mutex);
-    }
-
+    
     void sendToDshot(float throttle_fraction)
     { 
         if (throttle_fraction <= 0.0f) {
