@@ -69,5 +69,25 @@
         "variant": "cpp",
         "coroutine": "cpp",
         "iostream": "cpp"
-    }
+    },
+
+    // Doxygen Documentation Generator settings
+    "doxdocgen.generic.briefTemplate": "@brief {text}",
+    "doxdocgen.generic.paramTemplate": "@param {param} ",
+    "doxdocgen.generic.returnTemplate": "@return ",
+    "doxdocgen.generic.order": [
+        "brief",
+        "param",
+        "return"
+    ],
+    "doxdocgen.file.fileOrder": [
+        "file",
+        "brief",
+        "details"
+    ],
+    "doxdocgen.file.fileTemplate": "@file {name}",
+    "doxdocgen.c.triggerSequence": "/**",
+    "doxdocgen.c.firstLine": "/**",
+    "doxdocgen.c.lastLine": " */",
+    "doxdocgen.c.commentPrefix": " * "
 }

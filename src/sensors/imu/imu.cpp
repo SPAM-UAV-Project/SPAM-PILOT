@@ -1,10 +1,12 @@
 #include "imu.hpp"
 #include "MPU6050.h"
 #include "pin_defs.hpp"
+#include "msgs/ImuHighRateMsg.hpp"
 
 namespace sensors::imu
 {
     MPU6050 mpu;
+    Topic<ImuHighRateMsg>::Publisher imu_pub;
 
     void initIMU()
     {
@@ -35,6 +37,7 @@ namespace sensors::imu
         // start interrupts
         pinMode(PIN_IMU_INT, INPUT);
         attachInterrupt(digitalPinToInterrupt(PIN_IMU_INT), imuISR, RISING);
+
     }
 
     void IRAM_ATTR imuISR()
@@ -47,19 +50,23 @@ namespace sensors::imu
     void imuTask(void *pvParameters)
     {
         int16_t ax_raw, ay_raw, az_raw, gx_raw, gy_raw, gz_raw;
+        ImuHighRateMsg imu_msg;
+
         while (1){
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
             // read imu data
             mpu.getMotion6(&ax_raw, &ay_raw, &az_raw, &gx_raw, &gy_raw, &gz_raw);
 
-            accel_data << ax_raw / 8192.0f * 9.81f,
-                          ay_raw / 8192.0f * 9.81f,
-                          az_raw / 8192.0f * 9.81f;
-            gyro_data << gx_raw / 65.5f,
-                         gy_raw / 65.5f,
-                         gz_raw / 65.5f;
+            imu_msg.timestamp = micros();
+            imu_msg.accel << ax_raw / 8192.0f * 9.81f,
+                             ay_raw / 8192.0f * 9.81f,
+                             az_raw / 8192.0f * 9.81f;
+            imu_msg.gyro << gx_raw / 65.5f,
+                            gy_raw / 65.5f,
+                            gz_raw / 65.5f;
 
+            imu_pub.push(imu_msg);
         }
     }
 }
