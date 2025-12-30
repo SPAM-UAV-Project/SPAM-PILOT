@@ -2,6 +2,7 @@
 #include "sensors/imu/imu.hpp"
 #include "msgs/ImuMagMsg.hpp"
 #include "msgs/ImuHighRateMsg.hpp"
+#include "msgs/EkfStatesMsg.hpp"
 
 namespace flight {
 
@@ -23,8 +24,10 @@ void StateManager::stateManagerTask() {
     // subscribers
     Topic<ImuMagMsg>::Subscriber imu_mag_sub;
     Topic<ImuHighRateMsg>::Subscriber imu_highrate_sub;
+    Topic<EkfStatesMsg>::Subscriber ekf_states_sub;
     ImuMagMsg mag_data;
     ImuHighRateMsg imu_highrate_data;
+    EkfStatesMsg ekf_states_data;
 
     while (true) {
 
@@ -32,6 +35,7 @@ void StateManager::stateManagerTask() {
         {
         case SystemState::INITIALIZING:
             sensors::imu::initIMU();
+            state_estimator_.init();
             switchState(SystemState::MOTORS_DISABLED);
             break;
         case SystemState::MOTORS_DISABLED:
@@ -43,6 +47,16 @@ void StateManager::stateManagerTask() {
             //                 imu_highrate_data.accel.x());
             // }
 
+            if (ekf_states_sub.pull_if_new(ekf_states_data)) {
+                Serial.printf("[EKF] Attitude: [%.2f, %.2f, %.2f, %.2f]\n",
+                              ekf_states_data.attitude.x(), ekf_states_data.attitude.y(),
+                              ekf_states_data.attitude.z(), ekf_states_data.attitude.w());
+            }
+
+            // print gyro
+            // imu_highrate_sub.pull_if_new(imu_highrate_data);
+            // Serial.printf("[IMU HIGH RATE] Gyro: [%.2f, %.2f, %.2f]\n",
+            //               imu_highrate_data.gyro.x() - ekf_states_data.gyro_bias.x(), imu_highrate_data.gyro.y() - ekf_states_data.gyro_bias.y(), imu_highrate_data.gyro.z() - ekf_states_data.gyro_bias.z());
             
             break;
         case SystemState::ARMED:

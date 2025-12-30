@@ -2,6 +2,7 @@
 #define STATE_MANAGER_HPP
 
 #include "msgs/VehicleStateMsg.hpp"
+#include "gnc/state_estimation/state_estimator.hpp"
 
 namespace flight {
 
@@ -23,8 +24,11 @@ private:
 
     SystemState cur_state_ = SystemState::INITIALIZING;
     FlightMode cur_mode_ = FlightMode::STABILIZED;
-};
+
+    // classes
+    gnc::StateEstimator state_estimator_;
 
 };
+}
 
 #endif // STATE_MANAGER_HPP

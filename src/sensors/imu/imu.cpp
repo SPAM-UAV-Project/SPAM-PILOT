@@ -64,21 +64,21 @@ namespace sensors::imu
         mpu.setI2CBypassEnabled(true); // enable direct access to mag via i2c
         mpu.setI2CMasterModeEnabled(false);
         mpu.setSleepEnabled(false);
+        xTaskCreate(imuTask, "IMU Task", 4096, NULL, 3, &imuTaskHandle);
 
         delay(100);
-        // setup QMC5883L
-        if (!mag.begin()) {
-            Serial.println("[IMU]: ERROR - Cannot communicate with HMC5883L!");
-            return;
-        }
-        mag.setRange(HMC5883L_RANGE_1_3GA);          // 1.3 Gauss
-        mag.setMeasurementMode(HMC5883L_CONTINOUS); 
-        mag.setDataRate(HMC5883L_DATARATE_30HZ);
-        mag.setSamples(HMC5883L_SAMPLES_8); // oversampling
 
-        // start tasks
-        xTaskCreate(imuTask, "IMU Task", 4096, NULL, 3, &imuTaskHandle);
-        xTaskCreate(magTask, "Mag Task", 4096, NULL, 2, NULL);
+        // setup QMC5883L
+        // if (!mag.begin()) {
+        //     Serial.println("[IMU]: ERROR - Cannot communicate with HMC5883L!");
+        //     return;
+        // }
+        // mag.setRange(HMC5883L_RANGE_1_3GA);          // 1.3 Gauss
+        // mag.setMeasurementMode(HMC5883L_CONTINOUS); 
+        // mag.setDataRate(HMC5883L_DATARATE_30HZ);
+        // mag.setSamples(HMC5883L_SAMPLES_8); // oversampling
+        // xTaskCreate(magTask, "Mag Task", 4096, NULL, 2, NULL);
+
 
         // start interrupts
         pinMode(PIN_IMU_INT, INPUT);
@@ -111,9 +111,9 @@ namespace sensors::imu
             imu_msg.accel << imu_raw[0] / 8192.0f * 9.81f,
                              imu_raw[1] / 8192.0f * 9.81f,
                              imu_raw[2] / 8192.0f * 9.81f;
-            imu_msg.gyro << imu_raw[3] / 65.5f,
-                            imu_raw[4] / 65.5f,
-                            imu_raw[5] / 65.5f;
+            imu_msg.gyro << (imu_raw[3] / 65.5f) * DEG_TO_RAD,
+                            (imu_raw[4] / 65.5f) * DEG_TO_RAD,
+                            (imu_raw[5] / 65.5f) * DEG_TO_RAD;
             imu_pub.push(imu_msg);
         }
     }

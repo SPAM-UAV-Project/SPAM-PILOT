@@ -9,7 +9,8 @@ enum class SystemState
     MOTORS_DISABLED,
     ARMED,
     IN_FLIGHT,
-    FAILSAFE
+    FAILSAFE,
+    CALIBRATION
 };
 
 enum class FlightMode
