@@ -16,12 +16,13 @@ public:
     static void stateManagerTaskEntry(void* instance) {
         static_cast<StateManager*>(instance)->stateManagerTask();
     }
+
 private:
     void stateManagerTask();
+    void switchState(SystemState new_state);
 
     SystemState cur_state_ = SystemState::INITIALIZING;
     FlightMode cur_mode_ = FlightMode::STABILIZED;
-    uint32_t dt = 20; // ms - 50 hz
 };
 
 };

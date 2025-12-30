@@ -2,12 +2,11 @@
 #include "sensors/imu/imu.hpp"
 #include "flight/state_manager.hpp"
 
+flight::StateManager state_manager;
 
 void setup() 
 {
     Serial.begin(921600); 
-    
-    flight::StateManager state_manager;
     state_manager.init();
 }
 

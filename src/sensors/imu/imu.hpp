@@ -4,6 +4,8 @@
 #include <Arduino.h>
 #include "ArduinoEigen/Eigen/Dense"
 
+#define MAG_LSB_2_uT 0.092f
+
 namespace sensors::imu
 {
     inline xTaskHandle imuTaskHandle = NULL;
@@ -11,6 +13,7 @@ namespace sensors::imu
     void imuISR();
     void initIMU();
     void imuTask(void *pvParameters);
+    void magTask(void *pvParameters);
 }
 
 #endif // IMU_HPP

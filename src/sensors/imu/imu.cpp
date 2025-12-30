@@ -1,19 +1,50 @@
+/**
+ * @file imu.cpp
+ * @brief implementation for IMU interface and tasks
+ */
+
 #include "imu.hpp"
+#include "hmc5883l.hpp"
 #include "MPU6050.h"
 #include "pin_defs.hpp"
 #include "msgs/ImuHighRateMsg.hpp"
+#include "msgs/ImuMagMsg.hpp"
 
 namespace sensors::imu
 {
     MPU6050 mpu;
+    HMC5883L mag;
     Topic<ImuHighRateMsg>::Publisher imu_pub;
+    Topic<ImuMagMsg>::Publisher mag_pub;
+
+    // mutex for i2c reads
+    SemaphoreHandle_t i2c_mutex;
+
+    void clearI2CBus(int sda, int scl) {
+        pinMode(sda, INPUT_PULLUP);
+        pinMode(scl, OUTPUT);
+
+        // If SDA is stuck low, toggle SCL to force the slave to release it
+        for (int i = 0; i < 16; i++) {
+            digitalWrite(scl, LOW);
+            delayMicroseconds(10);
+            digitalWrite(scl, HIGH);
+            delayMicroseconds(10);
+            if (digitalRead(sda) == HIGH) break; // Bus is free
+        }
+    }
 
     void initIMU()
     {
+        i2c_mutex = xSemaphoreCreateMutex();
+
+        clearI2CBus(PIN_IMU_SDA, PIN_IMU_SCL);
         Wire.begin(PIN_IMU_SDA, PIN_IMU_SCL);
         Wire.setClock(400000); // 400kHz 
 
+        // setup MPU6050
         mpu.initialize();
+        delay(100);
 
         if (!mpu.testConnection()) {
             Serial.println("[IMU]: ERROR - Cannot communicate with MPU6050!");
@@ -30,9 +61,24 @@ namespace sensors::imu
         mpu.setInterruptDrive(false);
         mpu.setInterruptLatch(false);
         mpu.setInterruptLatchClear(true);
+        mpu.setI2CBypassEnabled(true); // enable direct access to mag via i2c
+        mpu.setI2CMasterModeEnabled(false);
+        mpu.setSleepEnabled(false);
 
-        // start imu task
-        xTaskCreate(imuTask, "IMU Task", 2048, NULL, 3, &imuTaskHandle);
+        delay(100);
+        // setup QMC5883L
+        if (!mag.begin()) {
+            Serial.println("[IMU]: ERROR - Cannot communicate with HMC5883L!");
+            return;
+        }
+        mag.setRange(HMC5883L_RANGE_1_3GA);          // 1.3 Gauss
+        mag.setMeasurementMode(HMC5883L_CONTINOUS); 
+        mag.setDataRate(HMC5883L_DATARATE_30HZ);
+        mag.setSamples(HMC5883L_SAMPLES_8); // oversampling
+
+        // start tasks
+        xTaskCreate(imuTask, "IMU Task", 4096, NULL, 3, &imuTaskHandle);
+        xTaskCreate(magTask, "Mag Task", 4096, NULL, 2, NULL);
 
         // start interrupts
         pinMode(PIN_IMU_INT, INPUT);
@@ -49,24 +95,59 @@ namespace sensors::imu
 
     void imuTask(void *pvParameters)
     {
-        int16_t ax_raw, ay_raw, az_raw, gx_raw, gy_raw, gz_raw;
+        int16_t imu_raw[6] = {0};
         ImuHighRateMsg imu_msg;
 
         while (1){
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
             // read imu data
-            mpu.getMotion6(&ax_raw, &ay_raw, &az_raw, &gx_raw, &gy_raw, &gz_raw);
+            if (xSemaphoreTake(i2c_mutex, portMAX_DELAY) == pdTRUE) {
+                mpu.getMotion6(&imu_raw[0], &imu_raw[1], &imu_raw[2], &imu_raw[3], &imu_raw[4], &imu_raw[5]);
+                xSemaphoreGive(i2c_mutex);
+            }
 
             imu_msg.timestamp = micros();
-            imu_msg.accel << ax_raw / 8192.0f * 9.81f,
-                             ay_raw / 8192.0f * 9.81f,
-                             az_raw / 8192.0f * 9.81f;
-            imu_msg.gyro << gx_raw / 65.5f,
-                            gy_raw / 65.5f,
-                            gz_raw / 65.5f;
-
+            imu_msg.accel << imu_raw[0] / 8192.0f * 9.81f,
+                             imu_raw[1] / 8192.0f * 9.81f,
+                             imu_raw[2] / 8192.0f * 9.81f;
+            imu_msg.gyro << imu_raw[3] / 65.5f,
+                            imu_raw[4] / 65.5f,
+                            imu_raw[5] / 65.5f;
             imu_pub.push(imu_msg);
+        }
+    }
+
+    void magTask(void *pvParameters)
+    {
+        int16_t mag_raw[3] = {0};
+        int16_t last_mag_raw[3] = {0};
+        ImuMagMsg mag_msg;
+
+        const TickType_t delay = pdMS_TO_TICKS(5); // 200 Hz
+        TickType_t last_wake_time = xTaskGetTickCount();
+
+        // need to somehow clear the ready bit of the HMC5883L status register to get a data ready signal.
+        // currently just polls at 200 hz and does a comparison to see if data has changed.
+        while (1){
+            if (xSemaphoreTake(i2c_mutex, portMAX_DELAY) == pdTRUE) {
+                mag.readRawBurst(&mag_raw[0], &mag_raw[1], &mag_raw[2]);
+                // only publish if there is new data (poor mans data ready pin)
+                if (mag_raw[0] != last_mag_raw[0] || mag_raw[1] != last_mag_raw[1] || mag_raw[2] != last_mag_raw[2]) {
+                    mag_msg.timestamp = micros();
+                    mag_msg.mag << mag_raw[0] * MAG_LSB_2_uT, 
+                                mag_raw[1] * MAG_LSB_2_uT,
+                                mag_raw[2] * MAG_LSB_2_uT;
+                    mag_pub.push(mag_msg);
+                
+                    last_mag_raw[0] = mag_raw[0];
+                    last_mag_raw[1] = mag_raw[1];
+                    last_mag_raw[2] = mag_raw[2];
+                    
+                };
+                xSemaphoreGive(i2c_mutex);
+            }
+            vTaskDelayUntil(&last_wake_time, delay);
         }
     }
 }
