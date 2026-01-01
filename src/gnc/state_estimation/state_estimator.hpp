@@ -35,8 +35,9 @@ namespace gnc {
 
         // initial conditions
         Eigen::Vector4f init_quat_;
-        Eigen::Vector3f init_gyro_bias_;
         Eigen::Vector3f init_LLA_;
+        Eigen::Vector3f init_accel_bias_;
+        Eigen::Vector3f init_gyro_bias_;
         float pos_var_init_ = 100.f, vel_var_init_ = 100.f, attitude_var_init_ = 0.5f;
         float ab_var_init_ = 0.5f, gb_var_init_ = 0.3f;
 
@@ -56,6 +57,7 @@ namespace gnc {
         // publishers
         Topic<EkfStatesMsg>::Publisher ekf_states_pub_;
         EkfStatesMsg ekf_states_msg_;
+
     };    
 }
 #endif // STATE_ESTIMATOR_HPP

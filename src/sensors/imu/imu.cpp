@@ -69,16 +69,15 @@ namespace sensors::imu
         delay(100);
 
         // setup QMC5883L
-        // if (!mag.begin()) {
-        //     Serial.println("[IMU]: ERROR - Cannot communicate with HMC5883L!");
-        //     return;
-        // }
-        // mag.setRange(HMC5883L_RANGE_1_3GA);          // 1.3 Gauss
-        // mag.setMeasurementMode(HMC5883L_CONTINOUS); 
-        // mag.setDataRate(HMC5883L_DATARATE_30HZ);
-        // mag.setSamples(HMC5883L_SAMPLES_8); // oversampling
-        // xTaskCreate(magTask, "Mag Task", 4096, NULL, 2, NULL);
-
+        if (!mag.begin()) {
+            Serial.println("[IMU]: ERROR - Cannot communicate with HMC5883L!");
+            return;
+        }
+        mag.setRange(HMC5883L_RANGE_1_3GA);          // 1.3 Gauss
+        mag.setMeasurementMode(HMC5883L_CONTINOUS); 
+        mag.setDataRate(HMC5883L_DATARATE_30HZ);
+        mag.setSamples(HMC5883L_SAMPLES_8); // oversampling
+        xTaskCreate(magTask, "Mag Task", 4096, NULL, 2, NULL);
 
         // start interrupts
         pinMode(PIN_IMU_INT, INPUT);
@@ -114,6 +113,10 @@ namespace sensors::imu
             imu_msg.gyro << (imu_raw[3] / 65.5f) * DEG_TO_RAD,
                             (imu_raw[4] / 65.5f) * DEG_TO_RAD,
                             (imu_raw[5] / 65.5f) * DEG_TO_RAD;
+            // rotate into FRD
+            imu_msg.gyro = IMU_TO_BODY_ROT * IMU_TO_FRD_ROT * imu_msg.gyro;
+            imu_msg.accel = IMU_TO_BODY_ROT * IMU_TO_FRD_ROT * imu_msg.accel;
+
             imu_pub.push(imu_msg);
         }
     }
@@ -138,12 +141,14 @@ namespace sensors::imu
                     mag_msg.mag << mag_raw[0] * MAG_LSB_2_uT, 
                                 mag_raw[1] * MAG_LSB_2_uT,
                                 mag_raw[2] * MAG_LSB_2_uT;
+
+                    // rotate into FRD
+                    mag_msg.mag = MAG_TO_BODY_ROT * MAG_TO_FRD_ROT * (mag_msg.mag - mag_bias);
                     mag_pub.push(mag_msg);
                 
                     last_mag_raw[0] = mag_raw[0];
                     last_mag_raw[1] = mag_raw[1];
                     last_mag_raw[2] = mag_raw[2];
-                    
                 };
                 xSemaphoreGive(i2c_mutex);
             }

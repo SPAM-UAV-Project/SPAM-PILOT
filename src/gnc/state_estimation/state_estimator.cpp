@@ -18,8 +18,8 @@ void StateEstimator::getInitialStates()
     Eigen::Vector3f gyro_sum = Eigen::Vector3f::Zero();
     Eigen::Vector3f mag_sum = Eigen::Vector3f::Zero();
 
-    int imu_hr_samples = 0; 
-    int imu_mag_samples = 200; // disable mag for now
+    float imu_hr_samples = 0.f; 
+    float imu_mag_samples = 0.f;
 
     while (imu_hr_samples < 250 || imu_mag_samples < 100) {
         if (imu_gyro_accel_sub_.pull_if_new(imu_gyro_accel_msg_)) {
@@ -40,15 +40,38 @@ void StateEstimator::getInitialStates()
             imu_mag_samples++;
         }
     }
-    init_gyro_bias_ = gyro_sum / 250.0f;
-    Eigen::Vector3f avg_accel = accel_sum / 250.0f;
-    Eigen::Vector3f avg_mag = mag_sum / 250.0f;
+    Eigen::Vector3f avg_gyro = gyro_sum / imu_hr_samples;
+    Eigen::Vector3f avg_accel = accel_sum / imu_hr_samples;
+    Eigen::Vector3f avg_mag = mag_sum / imu_mag_samples;
 
-    Serial.printf("Initial Gyro Bias: [%.4f, %.4f, %.4f]\n", init_gyro_bias_.x(), init_gyro_bias_.y(), init_gyro_bias_.z());
+    // print all initial values
+    Serial.printf("[StateEstimator] Initial Gyro Bias: [%.4f, %.4f, %.4f] rad/s\n",
+                  avg_gyro.x(), avg_gyro.y(), avg_gyro.z());
+    Serial.printf("[StateEstimator] Initial Accel (incl. gravity): [%.4f, %.4f, %.4f] m/s^2\n",
+                    avg_accel.x(), avg_accel.y(), avg_accel.z());
+    Serial.printf("[StateEstimator] Initial Mag: [%.4f, %.4f, %.4f] uT\n",
+                    avg_mag.x(), avg_mag.y(), avg_mag.z());
 
+    init_gyro_bias_ = avg_gyro;
 
-    // guess initial orientation - TO DO - maybe get from triad with accel and mag
-    init_quat_ << 0.0f, 0.0f, 0.0f, 1.0f; // x, y, z, w
+    // compute initial attitude using accel and mag
+    Vector3f mag_unit = avg_mag.normalized();
+    Vector3f accel_unit = avg_accel.normalized();
+
+    Vector3f Z = -accel_unit;
+    Vector3f Y = Z.cross(mag_unit).normalized();
+    Vector3f X = Y.cross(Z).normalized();
+
+    Eigen::Matrix3f C_b_n; // rotation matrix from nav frame to body frame
+    C_b_n.col(0) = X;
+    C_b_n.col(1) = Y;
+    C_b_n.col(2) = Z;
+
+    init_quat_ = Eigen::Quaternionf(C_b_n.transpose()).normalized().coeffs(); // x, y, z, w
+
+    Serial.printf("[StateEstimator] Initial Attitude Quaternion: [%.4f, %.4f, %.4f, %.4f]\n",
+                  init_quat_.x(), init_quat_.y(), init_quat_.z(), init_quat_.w());
+    
 }
 
 void StateEstimator::init() 

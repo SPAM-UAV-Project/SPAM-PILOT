@@ -42,22 +42,21 @@ void StateManager::stateManagerTask() {
             // imu_highrate_sub.pull_if_new(imu_highrate_data);
             // if (imu_mag_sub.pull_if_new(mag_data)) {
             //     // print mag data and accel in x axis only
-            //     Serial.printf("[IMU MAG] Mag: [%.2f, %.2f, %.2f] Accel X: %.2f\n",
-            //                 mag_data.mag.x(), mag_data.mag.y(), mag_data.mag.z(),
-            //                 imu_highrate_data.accel.x());
+            //     Serial.printf("%.2f\t%.2f\t%.2f\n",
+            //                 mag_data.mag.x(), mag_data.mag.y(), mag_data.mag.z());
             // }
 
-            if (ekf_states_sub.pull_if_new(ekf_states_data)) {
-                Serial.printf("[EKF] Attitude: [%.2f, %.2f, %.2f, %.2f]\n",
-                              ekf_states_data.attitude.x(), ekf_states_data.attitude.y(),
-                              ekf_states_data.attitude.z(), ekf_states_data.attitude.w());
-            }
+            ekf_states_sub.pull_if_new(ekf_states_data);
+            Serial.printf("[EKF] Attitude: [%.2f, %.2f, %.2f, %.2f]\n",
+                          ekf_states_data.attitude.x(), ekf_states_data.attitude.y(),
+                          ekf_states_data.attitude.z(), ekf_states_data.attitude.w());
 
-            // print gyro
+            // print gyro and accel
             // imu_highrate_sub.pull_if_new(imu_highrate_data);
-            // Serial.printf("[IMU HIGH RATE] Gyro: [%.2f, %.2f, %.2f]\n",
-            //               imu_highrate_data.gyro.x() - ekf_states_data.gyro_bias.x(), imu_highrate_data.gyro.y() - ekf_states_data.gyro_bias.y(), imu_highrate_data.gyro.z() - ekf_states_data.gyro_bias.z());
-            
+            // Serial.printf("[IMU HR] Accel: [%.2f, %.2f, %.2f] m/s^2 | Gyro: [%.2f, %.2f, %.2f] rad/s\n",
+            //               imu_highrate_data.accel.x(), imu_highrate_data.accel.y(), imu_highrate_data.accel.z(),
+            //               imu_highrate_data.gyro.x(), imu_highrate_data.gyro.y(), imu_highrate_data.gyro.z());
+
             break;
         case SystemState::ARMED:
             break;

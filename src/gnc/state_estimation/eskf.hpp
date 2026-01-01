@@ -64,6 +64,9 @@ private:
     // process noise covariance in place of Q
     float accel_noise_var_, accel_walk_var_;
     float gyro_noise_var_, gyro_walk_var_;
+
+    // mag bias
+    Eigen::Vector3f mag_bias_ = Eigen::Vector3f::Zero();
 };
 
 }
