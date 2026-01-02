@@ -64,7 +64,7 @@ namespace sensors::imu
         mpu.setI2CBypassEnabled(true); // enable direct access to mag via i2c
         mpu.setI2CMasterModeEnabled(false);
         mpu.setSleepEnabled(false);
-        xTaskCreate(imuTask, "IMU Task", 4096, NULL, 3, &imuTaskHandle);
+        xTaskCreate(imuTask, "IMU Task", 8192, NULL, 3, &imuTaskHandle);
 
         delay(100);
 
@@ -77,7 +77,7 @@ namespace sensors::imu
         mag.setMeasurementMode(HMC5883L_CONTINOUS); 
         mag.setDataRate(HMC5883L_DATARATE_30HZ);
         mag.setSamples(HMC5883L_SAMPLES_8); // oversampling
-        xTaskCreate(magTask, "Mag Task", 4096, NULL, 2, NULL);
+        xTaskCreate(magTask, "Mag Task", 8192, NULL, 3, NULL);
 
         // start interrupts
         pinMode(PIN_IMU_INT, INPUT);

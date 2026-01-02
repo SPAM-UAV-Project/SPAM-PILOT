@@ -7,6 +7,7 @@
 #define ESKF_HPP
 
 #include <ArduinoEigen/Eigen/Dense>
+#include <Arduino.h>
 
 using namespace Eigen;
 
@@ -26,7 +27,7 @@ using namespace Eigen;
 
 #define SQ(x) ((x)*(x))
 #define I_3 Eigen::Matrix3f::Identity()
-#define I_STATE Eigen::Matrix<float, STATE_SIZE, STATE_SIZE>::Identity()
+#define I_dSTATE Eigen::Matrix<float, dSTATE_SIZE, dSTATE_SIZE>::Identity()
 
 #define GRAVITY (9.81f)
 
@@ -42,7 +43,8 @@ public:
                     const Vector3f& init_vel = Vector3f::Zero(),
                     const Vector4f& init_quat = (Vector4f() << 0.0f, 0.0f, 0.0f, 1.0f).finished(),
                     const Vector3f& init_ab = Vector3f::Zero(),
-                    const Vector3f& init_gb = Vector3f::Zero());
+                    const Vector3f& init_gb = Vector3f::Zero(),
+                    const Vector3f& init_mag = Vector3f::Zero());
     void initCovariances(const Matrix3f& pos_cov, const Matrix3f& vel_cov,
                          const Matrix3f& attitude_cov, const Matrix3f& ab_cov,
                          const Matrix3f& gb_cov);
@@ -50,23 +52,32 @@ public:
                          const float gyro_noise_var, const float gyro_walk_var);
     void predictStates(const Vector3f& accelMeas, const Vector3f& gyroMeas, float dt);
 
+    void fuseMag(const Eigen::Vector3f& magMeas, const Matrix3f& magMeasCov);
+    void fuseGravity(const Eigen::Vector3f& accelMeas, const Matrix3f& measCov);
+
     Eigen::VectorXf getStateVariable(int id, int length) {
         return x_.segment(id, length);
     }
 
 private:
+    void fuseMeasurement3D(const Vector3f& innov,
+        const Matrix3f& measCov,
+        const Matrix<float, 3, dSTATE_SIZE>& H);
+
+    void injectCorrection(const Eigen::Matrix<float, dSTATE_SIZE, 1>& dx);
+
     Eigen::Matrix<float, STATE_SIZE, 1> x_; // nominal state
     Eigen::Matrix<float, dSTATE_SIZE, 1> dx_; // error state
 
-    Eigen::Matrix<float, dSTATE_SIZE, dSTATE_SIZE> P_; // covariance of the error state
-    Eigen::Matrix<float, dSTATE_SIZE, dSTATE_SIZE> F_; // error state transition matrix
+    Eigen::Matrix<float, dSTATE_SIZE, dSTATE_SIZE> P_ = Eigen::Matrix<float, dSTATE_SIZE, dSTATE_SIZE>::Zero(); // covariance of the error state
+    Eigen::Matrix<float, dSTATE_SIZE, dSTATE_SIZE> F_ = Eigen::Matrix<float, dSTATE_SIZE, dSTATE_SIZE>::Zero(); // error state transition matrix
 
     // process noise covariance in place of Q
     float accel_noise_var_, accel_walk_var_;
     float gyro_noise_var_, gyro_walk_var_;
 
-    // mag bias
-    Eigen::Vector3f mag_bias_ = Eigen::Vector3f::Zero();
+    // initial measurements of interest
+    Eigen::Vector3f init_mag_nav_;
 };
 
 }

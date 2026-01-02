@@ -36,16 +36,17 @@ namespace gnc {
         // initial conditions
         Eigen::Vector4f init_quat_;
         Eigen::Vector3f init_LLA_;
+        Eigen::Vector3f init_mag_nav_; // initial mag in nav frame
         Eigen::Vector3f init_accel_bias_;
         Eigen::Vector3f init_gyro_bias_;
         float pos_var_init_ = 100.f, vel_var_init_ = 100.f, attitude_var_init_ = 0.5f;
         float ab_var_init_ = 0.5f, gb_var_init_ = 0.3f;
 
         // sensor noise from datasheet
-        float accel_noise_var_ = 0.04f; // (m/s^2)^2/Hz
-        float accel_walk_var_ = 0.0004f; // (m/s^2)^2*Hz
-        float gyro_noise_var_ = 0.0016f; // (rad/s)^2/Hz
-        float gyro_walk_var_ = 0.00004f; // (rad/s)^2*Hz
+        float accel_noise_var_ = 0.1f; // (m/s^2)^2/Hz
+        float accel_walk_var_ = 0.004f; // (m/s^2)^2*Hz
+        float gyro_noise_var_ = 0.016f; // (rad/s)^2/Hz
+        float gyro_walk_var_ = 0.004f; // (rad/s)^2*Hz
 
         // subscribers
         Topic<ImuHighRateMsg>::Subscriber imu_gyro_accel_sub_;

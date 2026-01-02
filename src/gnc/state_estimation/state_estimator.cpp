@@ -52,7 +52,6 @@ void StateEstimator::getInitialStates()
     Serial.printf("[StateEstimator] Initial Mag: [%.4f, %.4f, %.4f] uT\n",
                     avg_mag.x(), avg_mag.y(), avg_mag.z());
 
-    init_gyro_bias_ = avg_gyro;
 
     // compute initial attitude using accel and mag
     Vector3f mag_unit = avg_mag.normalized();
@@ -68,9 +67,13 @@ void StateEstimator::getInitialStates()
     C_b_n.col(2) = Z;
 
     init_quat_ = Eigen::Quaternionf(C_b_n.transpose()).normalized().coeffs(); // x, y, z, w
+    init_gyro_bias_ = avg_gyro;
+    init_mag_nav_ = C_b_n.transpose() * avg_mag;
 
     Serial.printf("[StateEstimator] Initial Attitude Quaternion: [%.4f, %.4f, %.4f, %.4f]\n",
                   init_quat_.x(), init_quat_.y(), init_quat_.z(), init_quat_.w());
+    Serial.printf("[StateEstimator] Initial Mag in Nav Frame: [%.4f, %.4f, %.4f] uT\n",
+                  init_mag_nav_.x(), init_mag_nav_.y(), init_mag_nav_.z());
     
 }
 
@@ -83,7 +86,8 @@ void StateEstimator::init()
                      Eigen::Vector3f::Zero(),
                      init_quat_,
                      Eigen::Vector3f::Zero(),
-                     init_gyro_bias_);
+                     init_gyro_bias_,
+                     init_mag_nav_);
     eskf_.initCovariances(I_3 * pos_var_init_, I_3 * vel_var_init_,
                           I_3 * attitude_var_init_, I_3 * ab_var_init_,
                           I_3 * gb_var_init_);
@@ -94,7 +98,7 @@ void StateEstimator::init()
     xTaskCreatePinnedToCore(
         StateEstimator::stateEstimatorTaskEntry,
         "StateEstimatorTask",
-        8192,
+        16384,
         this,
         3,
         &stateEstimatorTaskHandle_,
@@ -124,6 +128,15 @@ void StateEstimator::stateEstimatorTask(void *pvParameters)
         eskf_.predictStates(imu_gyro_accel_msg_.accel,
                                 imu_gyro_accel_msg_.gyro,
                                 dt_);
+
+        // if recieved mag data, update the filter
+        if (imu_mag_sub_.pull_if_new(imu_mag_msg_)) {
+            Eigen::Matrix3f mag_meas_cov = I_3 * 2.f; // tune later
+            eskf_.fuseMag(imu_mag_msg_.mag, mag_meas_cov);
+        }
+
+        Eigen::Matrix3f accel_meas_cov = I_3 * 0.05f; // tune later
+        eskf_.fuseGravity(imu_gyro_accel_msg_.accel, accel_meas_cov);
 
         // publish prior state estimate for now
         ekf_states_msg_.timestamp = current_time;

@@ -9,7 +9,7 @@ namespace flight {
 StateManager::StateManager() {}
 
 void StateManager::init() {
-    xTaskCreate(stateManagerTaskEntry, "StateManagerTask", 4096, this, 2, nullptr);
+    xTaskCreate(stateManagerTaskEntry, "StateManagerTask", 8192, this, 3, nullptr);
     Serial.println("[StateManager] State Manager task started.");
 }
 
@@ -46,10 +46,10 @@ void StateManager::stateManagerTask() {
             //                 mag_data.mag.x(), mag_data.mag.y(), mag_data.mag.z());
             // }
 
-            ekf_states_sub.pull_if_new(ekf_states_data);
-            Serial.printf("[EKF] Attitude: [%.2f, %.2f, %.2f, %.2f]\n",
-                          ekf_states_data.attitude.x(), ekf_states_data.attitude.y(),
-                          ekf_states_data.attitude.z(), ekf_states_data.attitude.w());
+            // ekf_states_sub.pull_if_new(ekf_states_data);
+            // Serial.printf("[EKF] Attitude: [%.2f, %.2f, %.2f, %.2f]\n",
+            //               ekf_states_data.attitude.x(), ekf_states_data.attitude.y(),
+            //               ekf_states_data.attitude.z(), ekf_states_data.attitude.w());
 
             // print gyro and accel
             // imu_highrate_sub.pull_if_new(imu_highrate_data);

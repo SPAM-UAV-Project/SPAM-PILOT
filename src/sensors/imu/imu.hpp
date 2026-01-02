@@ -18,7 +18,7 @@ namespace sensors::imu
     // mag hard iron bias (uT)
     inline Eigen::Vector3f gyro_bias = {0.0f, 0.0f, 0.0f};
     inline Eigen::Vector3f accel_bias = {0.0f, 0.0f, 0.0f};
-    inline Eigen::Vector3f mag_bias = {9.695457f, -9.284174f, 1.248736f};
+    inline Eigen::Vector3f mag_bias = {10.234636f, -9.875420f, 1.167783f};
 
     // gyro and accel transformation to FRD
     const Eigen::Matrix3f IMU_TO_FRD_ROT = (Eigen::Matrix3f() << 
@@ -29,7 +29,7 @@ namespace sensors::imu
     // mag transformation to FRD (mag sensor is +X -> West, +Y -> South, +Z -> down)
     const Eigen::Matrix3f MAG_TO_FRD_ROT = (Eigen::Matrix3f() << 
         0.0f,  -1.0f,  0.0f,
-        -1.0f,  0.0f,  0.0f,
+        1.0f,  0.0f,  0.0f,
         0.0f,  0.0f, 1.0f).finished();
 
     // imu orientation w.r.t body
