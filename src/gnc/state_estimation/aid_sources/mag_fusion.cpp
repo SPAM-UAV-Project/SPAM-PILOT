@@ -42,7 +42,7 @@ void ESKF::fuseMag(const Eigen::Vector3f& magMeas, const Matrix3f& magMeasCov)
     // dq_dtheta *= 0.5f;
 
 
-    print3DUpdate(magMeas, mag_pred, innov, current_quat);
+    //print3DUpdate(magMeas, mag_pred, innov, current_quat);
 
     H.block<3, 3>(0, dTHETA_ID) = getSkewSymmetric(mag_pred);
     fuseMeasurement3D(innov, magMeasCov, H);

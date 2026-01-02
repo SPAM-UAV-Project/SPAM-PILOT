@@ -95,15 +95,16 @@ void StateEstimator::init()
                           gyro_noise_var_, gyro_walk_var_);
 
     // start the estimator
-    xTaskCreatePinnedToCore(
+    xTaskCreate(
         StateEstimator::stateEstimatorTaskEntry,
         "StateEstimatorTask",
         16384,
         this,
         3,
-        &stateEstimatorTaskHandle_,
-        1
+        &stateEstimatorTaskHandle_
     );
+
+    Serial.println("[StateEstimator] State Estimator Task Started.");
     
 }
 
@@ -112,33 +113,31 @@ void StateEstimator::stateEstimatorTask(void *pvParameters)
     const TickType_t xFrequency = pdMS_TO_TICKS(4); // 250 Hz
     TickType_t xLastWakeTime = xTaskGetTickCount();
     long last_loop_time = micros();
+    long current_time = micros();
 
     while (true) {
         // obtain sensor data
-        if (!imu_gyro_accel_sub_.pull_if_new(imu_gyro_accel_msg_)) {
-            continue; // probably failsafe here if lost gyro data
+        if (imu_gyro_accel_sub_.pull_if_new(imu_gyro_accel_msg_)) {
+            // compute dt
+            current_time = micros();
+            dt_ = (current_time - last_loop_time) * 1e-6f; // convert to seconds
+            last_loop_time = current_time;
+
+            // obtain prior estimate
+            eskf_.predictStates(imu_gyro_accel_msg_.accel,
+                                    imu_gyro_accel_msg_.gyro,
+                                    dt_);
+
+            // fuse gravity 
+            eskf_.fuseGravity(imu_gyro_accel_msg_.accel, Eigen::Matrix3f(accel_noise_var_ * I_3));
         }
-
-        // compute dt
-        long current_time = micros();
-        dt_ = (current_time - last_loop_time) * 1e-6f; // convert to seconds
-        last_loop_time = current_time;
-
-        // obtain prior estimate
-        eskf_.predictStates(imu_gyro_accel_msg_.accel,
-                                imu_gyro_accel_msg_.gyro,
-                                dt_);
 
         // if recieved mag data, update the filter
         if (imu_mag_sub_.pull_if_new(imu_mag_msg_)) {
-            Eigen::Matrix3f mag_meas_cov = I_3 * 2.f; // tune later
-            eskf_.fuseMag(imu_mag_msg_.mag, mag_meas_cov);
+            eskf_.fuseMag(imu_mag_msg_.mag, Eigen::Matrix3f(mag_meas_var_ * I_3));
         }
 
-        Eigen::Matrix3f accel_meas_cov = I_3 * 0.05f; // tune later
-        eskf_.fuseGravity(imu_gyro_accel_msg_.accel, accel_meas_cov);
-
-        // publish prior state estimate for now
+        // publish states - note that the time here is not synchronized with the filter update
         ekf_states_msg_.timestamp = current_time;
         ekf_states_msg_.position = eskf_.getStateVariable(POS_ID, 3);
         ekf_states_msg_.velocity = eskf_.getStateVariable(VEL_ID, 3);

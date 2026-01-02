@@ -37,6 +37,13 @@ namespace gnc {
         Serial.print(quat.y(), 4); Serial.print(" ");
         Serial.print(quat.z(), 4); Serial.print(" ");
         Serial.println(quat.w(), 4);
+
+        // convert quaternion to euler for printing
+        Eigen::Vector3f euler = quat.toRotationMatrix().eulerAngles(0, 1, 2);
+        Serial.print("EULER (deg): ");
+        Serial.print(euler.x() * RAD_TO_DEG, 2); Serial.print(" ");
+        Serial.print(euler.y() * RAD_TO_DEG, 2); Serial.print(" ");
+        Serial.println(euler.z() * RAD_TO_DEG, 2);
     }
 
     // print attitude error covariance to serial

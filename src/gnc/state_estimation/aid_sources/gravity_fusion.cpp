@@ -29,8 +29,8 @@ void ESKF::fuseGravity(const Eigen::Vector3f& accelMeas, const Matrix3f& measCov
     H.setZero();
     H.block<3, 3>(0, dTHETA_ID) = getSkewSymmetric(gravity_pred);
 
-    // 4. Fuse
-    fuseMeasurement3D(innov, measCov, H);
+    // fuse, correct measCov by dividing by gravity squared
+    fuseMeasurement3D(innov, measCov / SQ(GRAVITY), H);
 }
 
 } // namespace gnc

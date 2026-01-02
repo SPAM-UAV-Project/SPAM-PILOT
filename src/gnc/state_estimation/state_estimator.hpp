@@ -43,10 +43,11 @@ namespace gnc {
         float ab_var_init_ = 0.5f, gb_var_init_ = 0.3f;
 
         // sensor noise from datasheet
-        float accel_noise_var_ = 0.1f; // (m/s^2)^2/Hz
-        float accel_walk_var_ = 0.004f; // (m/s^2)^2*Hz
-        float gyro_noise_var_ = 0.016f; // (rad/s)^2/Hz
-        float gyro_walk_var_ = 0.004f; // (rad/s)^2*Hz
+        float accel_noise_var_ = SQ(400e-6 * GRAVITY) * 125; // (m/s^2)
+        float accel_walk_var_ = SQ(0.003f); // (m/s^2 sqrt(s))^2
+        float gyro_noise_var_ = 9.5192e-3 * 3.f; // (rad/s)^2   -> (0.005*pi/180 degs/s/ sqrt(Hz))^2 * 125 Hz) // increased by 4 orders of magnitude
+        float gyro_walk_var_ = 4.3264e-10f; // (rad/s sqrt(s))^2 -> assuming 4.3 deg/sqrt(h) drift, uncertain estimate
+        float mag_meas_var_ = SQ(0.2f); // (uT)^2 -> 2 milli-Gauss std from datasheet
 
         // subscribers
         Topic<ImuHighRateMsg>::Subscriber imu_gyro_accel_sub_;
