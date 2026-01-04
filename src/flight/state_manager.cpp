@@ -3,6 +3,7 @@
 #include "msgs/ImuMagMsg.hpp"
 #include "msgs/ImuHighRateMsg.hpp"
 #include "msgs/EkfStatesMsg.hpp"
+#include "gnc/control_allocator/rotor_control.hpp"
 
 namespace flight {
 
@@ -18,6 +19,12 @@ void StateManager::switchState(SystemState new_state) {
     Serial.printf("[StateManager] Switched to state: %d\n", static_cast<int>(cur_state_));
 }
 
+bool StateManager::onSwitchState(const srv::SwitchState::Request& req, srv::SwitchState::Response& res) {
+    switchState(req.new_state);
+    res.success = true;
+    return true;
+}
+
 void StateManager::stateManagerTask() {
     TickType_t last_wake_time = xTaskGetTickCount();
 
@@ -29,6 +36,10 @@ void StateManager::stateManagerTask() {
     ImuHighRateMsg imu_highrate_data;
     EkfStatesMsg ekf_states_data;
 
+    // advertise services
+    Service<srv::SwitchState>::Server state_switcher_srv;
+    state_switcher_srv.advertise<StateManager, &StateManager::onSwitchState>(this);
+
     while (true) {
 
         switch (cur_state_)
@@ -36,38 +47,28 @@ void StateManager::stateManagerTask() {
         case SystemState::INITIALIZING:
             sensors::imu::initIMU();
             state_estimator_.init();
-            switchState(SystemState::MOTORS_DISABLED);
+            // control::rotor::initRotor();
+            // start mavlink, radio here
+            // switchState(SystemState::MOTORS_DISABLED);
             break;
         case SystemState::MOTORS_DISABLED:
-            // imu_highrate_sub.pull_if_new(imu_highrate_data);
-            // if (imu_mag_sub.pull_if_new(mag_data)) {
-            //     // print mag data and accel in x axis only
-            //     Serial.printf("%.2f\t%.2f\t%.2f\n",
-            //                 mag_data.mag.x(), mag_data.mag.y(), mag_data.mag.z());
-            // }
-
-            // ekf_states_sub.pull_if_new(ekf_states_data);
-            // Serial.printf("[EKF] Attitude: [%.2f, %.2f, %.2f, %.2f]\n",
-            //               ekf_states_data.attitude.x(), ekf_states_data.attitude.y(),
-            //               ekf_states_data.attitude.z(), ekf_states_data.attitude.w());
-
-            // print gyro and accel
-            // imu_highrate_sub.pull_if_new(imu_highrate_data);
-            // Serial.printf("[IMU HR] Accel: [%.2f, %.2f, %.2f] m/s^2 | Gyro: [%.2f, %.2f, %.2f] rad/s\n",
-            //               imu_highrate_data.accel.x(), imu_highrate_data.accel.y(), imu_highrate_data.accel.z(),
-            //               imu_highrate_data.gyro.x(), imu_highrate_data.gyro.y(), imu_highrate_data.gyro.z());
-
+            // wait for arming command to initialize any of the control loops for safety
             break;
         case SystemState::ARMED:
+            // might just switch to IN_FLIGHT directly , nothing much to do here/ maybe final checks?
+            switchState(SystemState::IN_FLIGHT);
             break;
         case SystemState::IN_FLIGHT:
+            // only have stabilized mode for now (hold attittude to level if no pilot input)
+
+            // land detector
             break;
         case SystemState::FAILSAFE:
             break;
         default:
             break;
         }
-    
+
 
         vTaskDelayUntil(&last_wake_time, pdMS_TO_TICKS(20)); // 50 Hz
     }

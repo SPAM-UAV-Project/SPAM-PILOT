@@ -105,7 +105,6 @@ void StateEstimator::init()
     );
 
     Serial.println("[StateEstimator] State Estimator Task Started.");
-    
 }
 
 void StateEstimator::stateEstimatorTask(void *pvParameters) 

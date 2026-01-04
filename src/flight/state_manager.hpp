@@ -3,6 +3,7 @@
 
 #include "msgs/VehicleStateMsg.hpp"
 #include "gnc/state_estimation/state_estimator.hpp"
+#include "srvs/SwitchStateSrv.hpp"
 
 namespace flight {
 
@@ -21,6 +22,7 @@ public:
 private:
     void stateManagerTask();
     void switchState(SystemState new_state);
+    bool onSwitchState(const srv::SwitchState::Request& req, srv::SwitchState::Response& res);
 
     SystemState cur_state_ = SystemState::INITIALIZING;
     FlightMode cur_mode_ = FlightMode::STABILIZED;
