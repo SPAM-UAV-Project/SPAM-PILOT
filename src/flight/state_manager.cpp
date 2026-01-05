@@ -48,8 +48,10 @@ void StateManager::stateManagerTask() {
             sensors::imu::initIMU();
             state_estimator_.init();
             // control::rotor::initRotor();
-            // start mavlink, radio here
-            // switchState(SystemState::MOTORS_DISABLED);
+            mavlink_comms_.registerTransport(&usb_transport_);
+            // mavlink_comms_.registerTransport(&wifi_transport_);
+            mavlink_comms_.init();
+            switchState(SystemState::MOTORS_DISABLED);
             break;
         case SystemState::MOTORS_DISABLED:
             // wait for arming command to initialize any of the control loops for safety

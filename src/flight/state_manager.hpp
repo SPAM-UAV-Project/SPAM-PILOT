@@ -4,6 +4,9 @@
 #include "msgs/VehicleStateMsg.hpp"
 #include "gnc/state_estimation/state_estimator.hpp"
 #include "srvs/SwitchStateSrv.hpp"
+#include "cdh/mavlink/mavlink_comms.hpp"
+#include "cdh/mavlink/transport/usb_transport.hpp"
+#include "cdh/mavlink/transport/wifi_transport.hpp"
 
 namespace flight {
 
@@ -29,6 +32,11 @@ private:
 
     // classes
     gnc::StateEstimator state_estimator_;
+
+    // mavlink
+    cdh::mavlink::MavlinkComms mavlink_comms_;
+    cdh::mavlink::UsbTransport usb_transport_;
+    cdh::mavlink::WifiTransport wifi_transport_;
 
 };
 }
