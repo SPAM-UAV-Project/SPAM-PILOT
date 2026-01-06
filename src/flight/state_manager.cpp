@@ -3,7 +3,7 @@
 #include "msgs/ImuMagMsg.hpp"
 #include "msgs/ImuHighRateMsg.hpp"
 #include "msgs/EkfStatesMsg.hpp"
-#include "gnc/control_allocator/rotor_control.hpp"
+#include "gnc/actuator_interface/rotor_control.hpp"
 
 namespace flight {
 

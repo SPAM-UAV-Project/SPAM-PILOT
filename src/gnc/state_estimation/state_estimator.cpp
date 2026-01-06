@@ -140,7 +140,7 @@ void StateEstimator::stateEstimatorTask(void *pvParameters)
         ekf_states_msg_.timestamp = current_time;
         ekf_states_msg_.position = eskf_.getStateVariable(POS_ID, 3);
         ekf_states_msg_.velocity = eskf_.getStateVariable(VEL_ID, 3);
-        ekf_states_msg_.attitude = eskf_.getStateVariable(QUAT_ID, 4);
+        ekf_states_msg_.attitude  = Eigen::Quaternionf(eskf_.getStateVariable(QUAT_ID, 4).data());
         ekf_states_msg_.accel_bias = eskf_.getStateVariable(AB_ID, 3);
         ekf_states_msg_.gyro_bias = eskf_.getStateVariable(GB_ID, 3);
         ekf_states_pub_.push(ekf_states_msg_);
