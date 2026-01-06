@@ -24,7 +24,7 @@ void ESKF::fuseGravity(const Eigen::Vector3f& accelMeas, const Matrix3f& measCov
     Eigen::Vector3f gravity_pred = current_quat.toRotationMatrix().transpose() * Eigen::Vector3f(0.0f, 0.0f, -1.0f);
     Eigen::Vector3f innov = accel_corrected - gravity_pred;
 
-    //print3DUpdate(accel_corrected, gravity_pred, innov, current_quat);
+    // print3DUpdate(accel_corrected, gravity_pred, innov, current_quat);
     Eigen::Matrix<float, 3, dSTATE_SIZE> H;
     H.setZero();
     H.block<3, 3>(0, dTHETA_ID) = getSkewSymmetric(gravity_pred);

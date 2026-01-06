@@ -13,23 +13,23 @@ RateController::RateController() : pid_x_(dt_ / 1000.0f, out_max_, out_min_, 1.0
 
 Eigen::Vector3f RateController::run(Eigen::Vector3f rate_setpoint, Eigen::Vector3f rate_measurement)
 {
-    control_output_.x() = pid_x_.run(rate_setpoint.x(), rate_measurement.x());
-    control_output_.y() = pid_y_.run(rate_setpoint.y(), rate_measurement.y());
-    control_output_.z() = pid_z_.run(rate_setpoint.z(), rate_measurement.z());
-
-    return control_output_;
+    return {
+        pid_x_.run(rate_setpoint[0], rate_measurement[0]),
+        pid_y_.run(rate_setpoint[1], rate_measurement[1]),
+        pid_z_.run(rate_setpoint[2], rate_measurement[2])
+    };
 }
 
 void RateController::init()
 {
-    xTaskCreatePinnedToCore(
+    xTaskCreate(
         rateControlTaskEntry,
         "RateControlTask",
         2048,
         this,
-        5,
-        nullptr,
-        1);
+        4,
+        nullptr
+    );
 }
 
 void RateController::rateControlTask(void *pvParameters)
@@ -43,7 +43,6 @@ void RateController::rateControlTask(void *pvParameters)
     RateSetpointMsg rate_setpoint_msg;
     TorqueSetpointMsg torque_setpoint_msg;
     ImuHighRateMsg imu_highrate_msg;
-    TorqueSetpointMsg torque_setpoint_msg;
     EkfStatesMsg ekf_states_msg;
 
     TickType_t xLastWakeTime = xTaskGetTickCount();

@@ -49,7 +49,7 @@ void StateManager::stateManagerTask() {
             state_estimator_.init();
             // control::rotor::initRotor();
             // start mavlink, radio here
-            // switchState(SystemState::MOTORS_DISABLED);
+            switchState(SystemState::MOTORS_DISABLED);
             break;
         case SystemState::MOTORS_DISABLED:
             // wait for arming command to initialize any of the control loops for safety
