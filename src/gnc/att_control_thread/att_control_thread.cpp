@@ -4,6 +4,8 @@
 #include "msgs/ForceSetpointMsg.hpp"
 #include "msgs/ImuHighRateMsg.hpp"
 #include "msgs/ThrustSetpointMsg.hpp"
+#include "msgs/RcCommandMsg.hpp"
+#include "msgs/VehicleFlightModeMsg.hpp"
 
 namespace gnc {
 
@@ -18,6 +20,14 @@ namespace gnc {
                       dt_ms_) 
     {}
 
+    void wrapAngle(float& angle) {
+        if (angle > M_PI) {
+            angle -= 2.0f * M_PI;
+        } else if (angle < -M_PI) {
+            angle += 2.0f * M_PI;
+        }
+    }
+
     void AttControlThread::init() {
         // initialize task
         xTaskCreate(
@@ -31,20 +41,6 @@ namespace gnc {
     }
 
     void AttControlThread::controllerTask(void *pvParameters) {
-        
-        // subscribers and publishers
-        Topic<AttitudeSetpointMsg>::Subscriber att_setpoint_sub_;
-        Topic<EkfStatesMsg>::Subscriber ekf_states_sub_;
-        Topic<ImuHighRateMsg>::Subscriber imu_highrate_sub_;
-        Topic<ThrustSetpointMsg>::Subscriber thrust_setpoint_sub_;
-        Topic<ForceSetpointMsg>::Publisher force_setpoint_pub_;
-
-        AttitudeSetpointMsg att_setpoint_msg_;
-        EkfStatesMsg ekf_states_msg_;
-        ImuHighRateMsg imu_highrate_msg_;
-        ThrustSetpointMsg thrust_setpoint_msg_;
-        ForceSetpointMsg force_setpoint_msg_;
-
         const TickType_t xFrequency = pdMS_TO_TICKS(static_cast<TickType_t>(dt_ms_));
         TickType_t xLastWakeTime = xTaskGetTickCount();
 
@@ -53,27 +49,50 @@ namespace gnc {
         int att_counter = 0;
 
         while (true) {
-            // obtain data
-            att_setpoint_sub_.pull_if_new(att_setpoint_msg_);
+            // fetch data
             ekf_states_sub_.pull_if_new(ekf_states_msg_);
             imu_highrate_sub_.pull_if_new(imu_highrate_msg_); // probably add a lpf on this later
-            
-            // decimate attitude controller
+            vehicle_mode_sub_.pull_if_new(vehicle_mode_msg_);
+            rc_command_sub_.pull_if_new(rc_command_msg_);
+            att_setpoint_sub_.pull_if_new(att_setpoint_msg_);
+
+            // att controller
             if (att_counter == 0) {
-                rate_setpoint_ = att_controller_.run(att_setpoint_msg_.setpoint, ekf_states_msg_.attitude);
+                if (vehicle_mode_msg_.flight_mode == FlightMode::STABILIZED ||
+                    vehicle_mode_msg_.flight_mode == FlightMode::ALT_HOLD) {
+                    att_setpoint_msg_ = createAttSetpointFromRc(); // override with rc command in manual modes
+                }
+                rate_setpoint_ = att_controller_.run(att_setpoint_msg_.q_sp, ekf_states_msg_.attitude);
+                rate_setpoint_.z() += yaw_ff_gain_ * att_setpoint_msg_.yaw_sp_ff_rate;
             }
             att_counter = (att_counter + 1) % att_decimation;
                     
-            // rate controller
+            // rate controller // may move into own task, this loop is getting heavy
             torque_setpoint_ = rate_controller_.run(rate_setpoint_, imu_highrate_msg_.gyro - ekf_states_msg_.gyro_bias);
 
             // perform control allocation and then send to actuator interface
             thrust_setpoint_sub_.pull_if_new(thrust_setpoint_msg_);
             force_setpoint_msg_.timestamp = micros();
 
-
             vTaskDelayUntil(&xLastWakeTime, xFrequency);
         }
+    }
+
+    AttitudeSetpointMsg AttControlThread::createAttSetpointFromRc() {
+        // create attitude setpoint quaternion from rc command roll, pitch, yaw angles
+        AttitudeSetpointMsg attitude_setpoint;
+
+        rpy_setpoint_.x() = rc_command_msg_.roll * max_man_angle_rad_;
+        rpy_setpoint_.y() = rc_command_msg_.pitch * max_man_angle_rad_;
+        rpy_setpoint_.z() += rc_command_msg_.yaw * yaw_rate_max_radps_ * (4.0f / 1000.0f); // assuming this is called at 250 Hz
+
+        wrapAngle(rpy_setpoint_.z());
+
+        attitude_setpoint.q_sp = Eigen::AngleAxisf(rpy_setpoint_.z(), Eigen::Vector3f::UnitZ()) *
+                            Eigen::AngleAxisf(rpy_setpoint_.y(), Eigen::Vector3f::UnitY()) *
+                            Eigen::AngleAxisf(rpy_setpoint_.x(), Eigen::Vector3f::UnitX());
+        attitude_setpoint.yaw_sp_ff_rate = rc_command_msg_.yaw * yaw_rate_max_radps_;
+        return attitude_setpoint;
     }
 
 }

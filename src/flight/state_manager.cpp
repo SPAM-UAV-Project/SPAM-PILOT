@@ -35,27 +35,24 @@ void StateManager::stateManagerTask() {
     Topic<ImuHighRateMsg>::Subscriber imu_highrate_sub;
     Topic<EkfStatesMsg>::Subscriber ekf_states_sub;
     Topic<RcCommandMsg>::Subscriber rc_command_sub;
+
+    // publishers and srvs
+    Topic<VehicleStateMsg>::Publisher vehicle_state_pub_;
+    Service<srv::SwitchState>::Server state_switcher_srv;
+    state_switcher_srv.advertise<StateManager, &StateManager::onSwitchState>(this);
+
     ImuMagMsg mag_data;
     ImuHighRateMsg imu_highrate_data;
     EkfStatesMsg ekf_states_data;
     RcCommandMsg rc_command_data;
-
-    // advertise services
-    Service<srv::SwitchState>::Server state_switcher_srv;
-    state_switcher_srv.advertise<StateManager, &StateManager::onSwitchState>(this);
+    VehicleStateMsg vehicle_state_msg;
 
     while (true) {
 
-        // pull new data
-        rc_command_sub.pull_if_new(rc_command_data);
-
-        // Serial.printf("rc data: pitch: %.2f, roll: %.2f, yaw: %.2f, throttle: %.2f, arm: %d, estop: %d\n",
-        //               rc_command_data.pitch,
-        //               rc_command_data.roll,
-        //               rc_command_data.yaw,
-        //               rc_command_data.throttle,
-        //               rc_command_data.arm_switch,
-        //               rc_command_data.emergency_stop);
+        // publish state
+        vehicle_state_msg.timestamp = micros();
+        vehicle_state_msg.system_state = cur_state_;
+        vehicle_state_pub_.push(vehicle_state_msg);
 
         switch (cur_state_)
         {
@@ -66,17 +63,17 @@ void StateManager::stateManagerTask() {
 
             // control::rotor::initRotor();
             // start mavlink, radio here
-            switchState(SystemState::MOTORS_DISABLED);
+            switchState(SystemState::DISARMED);
             break;
-        case SystemState::MOTORS_DISABLED:
+        case SystemState::DISARMED:
             // wait for arming command to initialize any of the control loops for safety
 
             break;
         case SystemState::ARMED:
-            // might just switch to IN_FLIGHT directly , nothing much to do here/ maybe final checks?
-            switchState(SystemState::IN_FLIGHT);
+            // might just switch to ARMED_FLYING directly , nothing much to do here/ maybe final checks?
+            switchState(SystemState::ARMED_FLYING);
             break;
-        case SystemState::IN_FLIGHT:
+        case SystemState::ARMED_FLYING:
             // only have stabilized mode for now (hold attittude to level if no pilot input)
 
             // land detector

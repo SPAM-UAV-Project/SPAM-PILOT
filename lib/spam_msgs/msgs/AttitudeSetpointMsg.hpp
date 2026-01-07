@@ -11,7 +11,8 @@
 struct AttitudeSetpointMsg
 {
     uint64_t timestamp = 0;
-    Eigen::Quaternionf setpoint = Eigen::Quaternionf::Identity();   
+    Eigen::Quaternionf q_sp = Eigen::Quaternionf::Identity();
+    float yaw_sp_ff_rate = 0.0f; // normalized yaw rate feedforward for RC yaw stick
 };
 
 #endif // ATTITUDE_SETPOINT_MSG_HPP
