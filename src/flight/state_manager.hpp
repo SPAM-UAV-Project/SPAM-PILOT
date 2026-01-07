@@ -3,6 +3,7 @@
 
 #include "msgs/VehicleStateMsg.hpp"
 #include "gnc/state_estimation/state_estimator.hpp"
+#include "cdh/radio_controller/rc.hpp"
 #include "srvs/SwitchStateSrv.hpp"
 
 namespace flight {
@@ -29,6 +30,7 @@ private:
 
     // classes
     gnc::StateEstimator state_estimator_;
+    cdh::RadioController radio_controller_;
 
 };
 }

@@ -3,7 +3,7 @@
 #include "DShotRMT.h"
 #include "msgs/EncoderMsg.hpp"
 #include "msgs/ThrustSetpointMsg.hpp"
-#include "msgs/TorqueSetpointMsg.hpp"
+#include "msgs/ForceSetpointMsg.hpp"
 
 // logic as described in "Flight Performance of a Swashplateless Micro Air Vehicle" by James Paulos and Mark Yim
 // https://ieeexplore.ieee.org/document/7139936
@@ -16,8 +16,7 @@ namespace control::rotor
     
     // subscribers
     Topic<EncoderMsg>::Subscriber encoder_sub;
-    Topic<ThrustSetpointMsg>::Subscriber thrust_sp_sub;
-    Topic<TorqueSetpointMsg>::Subscriber torque_sp_sub;
+    Topic<ForceSetpointMsg>::Subscriber force_sp_sub;
 
     // timer interrupts
     static hw_timer_t* rotorControlTimer = NULL;
@@ -59,8 +58,7 @@ namespace control::rotor
         float output_throttle_fraction;
 
         EncoderMsg enc_local;
-        ThrustSetpointMsg thrust_sp_local;
-        TorqueSetpointMsg torque_sp_local;
+        ForceSetpointMsg force_sp_local;
 
         while (true)
         {
@@ -68,20 +66,18 @@ namespace control::rotor
 
             // receive data
             encoder_sub.pull_if_new(enc_local);
-            thrust_sp_sub.pull_if_new(thrust_sp_local);
-            torque_sp_sub.pull_if_new(torque_sp_local);
+            force_sp_sub.pull_if_new(force_sp_local);
 
-            if (torque_sp_local.setpoint.x() != 0.0f || torque_sp_local.setpoint.y() != 0.0f)
+            if (force_sp_local.motor1.x() != 0.0f || force_sp_local.motor1.y() != 0.0f)
             {
                 // for swashplateless rotor control, we need to find an amplitude and a phase lag
-                amplitude = AMP_OFFSET + sqrt(SQ(torque_sp_local.setpoint.x()) + SQ(torque_sp_local.setpoint.y()));
-                phase = atan2(torque_sp_local.setpoint.y(), torque_sp_local.setpoint.x());
-
+                amplitude = AMP_OFFSET + sqrt(SQ(force_sp_local.motor1.x()) + SQ(force_sp_local.motor1.y()));
+                phase = atan2(force_sp_local.motor1.y(), force_sp_local.motor1.x());
                 // convert to an oscillatory throttle response
-                output_throttle_fraction = thrust_sp_local.setpoint + amplitude * cos(enc_local.angle_rad - phase);
+                output_throttle_fraction = force_sp_local.motor1.z() + amplitude * cos(enc_local.angle_rad - phase);
             } else {
                 // no pitch or roll command, just set throttle directly
-                output_throttle_fraction = thrust_sp_local.setpoint;
+                output_throttle_fraction = force_sp_local.motor1.z();
             }
             sendToDshot(output_throttle_fraction);
         }
