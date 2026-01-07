@@ -1,8 +1,9 @@
 #include "gnc/att_control_thread/att_control_thread.hpp"
 #include "msgs/AttitudeSetpointMsg.hpp"
 #include "msgs/EkfStatesMsg.hpp"
-#include "msgs/TorqueSetpointMsg.hpp"
+#include "msgs/ForceSetpointMsg.hpp"
 #include "msgs/ImuHighRateMsg.hpp"
+#include "msgs/ThrustSetpointMsg.hpp"
 
 namespace gnc {
 
@@ -35,12 +36,14 @@ namespace gnc {
         Topic<AttitudeSetpointMsg>::Subscriber att_setpoint_sub_;
         Topic<EkfStatesMsg>::Subscriber ekf_states_sub_;
         Topic<ImuHighRateMsg>::Subscriber imu_highrate_sub_;
-        Topic<TorqueSetpointMsg>::Publisher torque_setpoint_pub_;
+        Topic<ThrustSetpointMsg>::Subscriber thrust_setpoint_sub_;
+        Topic<ForceSetpointMsg>::Publisher force_setpoint_pub_;
 
         AttitudeSetpointMsg att_setpoint_msg_;
         EkfStatesMsg ekf_states_msg_;
         ImuHighRateMsg imu_highrate_msg_;
-        TorqueSetpointMsg torque_setpoint_msg_;
+        ThrustSetpointMsg thrust_setpoint_msg_;
+        ForceSetpointMsg force_setpoint_msg_;
 
         const TickType_t xFrequency = pdMS_TO_TICKS(static_cast<TickType_t>(dt_ms_));
         TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -64,8 +67,10 @@ namespace gnc {
             // rate controller
             torque_setpoint_ = rate_controller_.run(rate_setpoint_, imu_highrate_msg_.gyro - ekf_states_msg_.gyro_bias);
 
-            // control allocation
-            // send motor forces setpoint
+            // perform control allocation and then send to actuator interface
+            thrust_setpoint_sub_.pull_if_new(thrust_setpoint_msg_);
+            force_setpoint_msg_.timestamp = micros();
+
 
             vTaskDelayUntil(&xLastWakeTime, xFrequency);
         }
