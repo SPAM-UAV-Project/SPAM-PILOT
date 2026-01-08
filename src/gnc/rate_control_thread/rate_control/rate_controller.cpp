@@ -1,4 +1,4 @@
-#include "gnc/att_control_thread/rate_control/rate_controller.hpp"
+#include "gnc/rate_control_thread/rate_control/rate_controller.hpp"
 
 namespace gnc {
 
@@ -18,6 +18,13 @@ Eigen::Vector3f RateController::run(Eigen::Vector3f rate_setpoint, Eigen::Vector
         pid_y_.run(rate_setpoint.y(), rate_measurement.y()),
         pid_z_.run(rate_setpoint.z(), rate_measurement.z())
     };
+}
+
+void RateController::reset() 
+{
+    pid_x_.reset();
+    pid_y_.reset();
+    pid_z_.reset(); 
 }
 
 };

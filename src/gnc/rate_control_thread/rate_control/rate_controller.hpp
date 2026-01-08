@@ -30,6 +30,7 @@ public:
     ~RateController() = default;
 
     Eigen::Vector3f run(Eigen::Vector3f rate_setpoint, Eigen::Vector3f rate_measurement);
+    void reset();
 
 private:
     PID_DOM pid_x_;

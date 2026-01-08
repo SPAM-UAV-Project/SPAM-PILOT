@@ -1,11 +1,4 @@
 #include "state_manager.hpp"
-#include "sensors/imu/imu.hpp"
-#include "msgs/ImuMagMsg.hpp"
-#include "msgs/ImuHighRateMsg.hpp"
-#include "msgs/EkfStatesMsg.hpp"
-#include "msgs/RcCommandMsg.hpp"
-#include "gnc/actuator_interface/rotor_control.hpp"
-
 
 namespace flight {
 
@@ -29,30 +22,17 @@ bool StateManager::onSwitchState(const srv::SwitchState::Request& req, srv::Swit
 
 void StateManager::stateManagerTask() {
     TickType_t last_wake_time = xTaskGetTickCount();
-
-    // subscribers
-    Topic<ImuMagMsg>::Subscriber imu_mag_sub;
-    Topic<ImuHighRateMsg>::Subscriber imu_highrate_sub;
-    Topic<EkfStatesMsg>::Subscriber ekf_states_sub;
-    Topic<RcCommandMsg>::Subscriber rc_command_sub;
-
-    // publishers and srvs
-    Topic<VehicleStateMsg>::Publisher vehicle_state_pub_;
-    Service<srv::SwitchState>::Server state_switcher_srv;
-    state_switcher_srv.advertise<StateManager, &StateManager::onSwitchState>(this);
-
-    ImuMagMsg mag_data;
-    ImuHighRateMsg imu_highrate_data;
-    EkfStatesMsg ekf_states_data;
-    RcCommandMsg rc_command_data;
-    VehicleStateMsg vehicle_state_msg;
+    
+    // advertise services
+    state_switcher_srv_.advertise<StateManager, &StateManager::onSwitchState>(this);
 
     while (true) {
 
         // publish state
-        vehicle_state_msg.timestamp = micros();
-        vehicle_state_msg.system_state = cur_state_;
-        vehicle_state_pub_.push(vehicle_state_msg);
+        vehicle_state_msg_.timestamp = micros();
+        vehicle_state_msg_.system_state = cur_state_;
+        vehicle_state_msg_.flight_mode = cur_flight_mode_;
+        vehicle_state_pub_.push(vehicle_state_msg_);
 
         switch (cur_state_)
         {
@@ -61,8 +41,11 @@ void StateManager::stateManagerTask() {
             state_estimator_.init();
             radio_controller_.init();
 
+            // initialize controllers
+            att_control_thread_.init();
+            rate_control_thread_.init();
             // control::rotor::initRotor();
-            // start mavlink, radio here
+            
             switchState(SystemState::DISARMED);
             break;
         case SystemState::DISARMED:

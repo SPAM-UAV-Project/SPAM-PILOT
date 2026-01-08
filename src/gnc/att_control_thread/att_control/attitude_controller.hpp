@@ -30,6 +30,7 @@ public:
     ~AttitudeController() = default;
     
     Eigen::Vector3f run(Eigen::Quaternionf attitude_setpoint, Eigen::Quaternionf attitude_measurement);
+    void reset();
 
 private:
     PID_DOM pid_x_;

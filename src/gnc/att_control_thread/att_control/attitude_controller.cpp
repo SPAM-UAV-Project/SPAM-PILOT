@@ -22,4 +22,11 @@ namespace gnc {
             pid_z_.run(error_quat_.z(), 0.0f)
         };
     }
+
+    void AttitudeController::reset() 
+    {
+        pid_x_.reset();
+        pid_y_.reset();
+        pid_z_.reset(); 
+    }
 }
