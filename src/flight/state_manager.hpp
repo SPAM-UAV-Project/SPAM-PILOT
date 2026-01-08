@@ -9,6 +9,9 @@
 #include "gnc/rate_control_thread/rate_control_thread.hpp"
 #include "cdh/radio_controller/rc.hpp"
 #include "srvs/SwitchStateSrv.hpp"
+#include "cdh/mavlink/mavlink_comms.hpp"
+#include "cdh/mavlink/transport/usb_transport.hpp"
+#include "cdh/mavlink/transport/wifi_transport.hpp"
 
 namespace flight {
 
@@ -45,6 +48,11 @@ private:
     Topic<VehicleStateMsg>::Publisher vehicle_state_pub_;
     Service<srv::SwitchState>::Server state_switcher_srv_;
     VehicleStateMsg vehicle_state_msg_;
+
+    // mavlink
+    cdh::mavlink::MavlinkComms mavlink_comms_;
+    cdh::mavlink::UsbTransport usb_transport_;
+    cdh::mavlink::WifiTransport wifi_transport_;
 
 };
 }

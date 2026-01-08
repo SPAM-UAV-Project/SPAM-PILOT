@@ -45,6 +45,11 @@ void StateManager::stateManagerTask() {
             att_control_thread_.init();
             rate_control_thread_.init();
             // control::rotor::initRotor();
+
+            // initialize mavlink
+            mavlink_comms_.registerTransport(&usb_transport_);
+            // mavlink_comms_.registerTransport(&wifi_transport_);
+            mavlink_comms_.init();
             
             switchState(SystemState::DISARMED);
             break;
