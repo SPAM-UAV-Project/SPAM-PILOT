@@ -30,7 +30,7 @@ namespace gnc {
         void controllerTask(void *pvParameters);
 
         // subscribers and publishers
-        Topic<AttitudeSetpointMsg>::Subscriber att_setpoint_sub_;
+        Topic<AttitudeSetpointMsg>::Publisher att_setpoint_sub_;
         Topic<EkfStatesMsg>::Subscriber ekf_states_sub_;
         Topic<RcCommandMsg>::Subscriber rc_command_sub_;
         Topic<VehicleStateMsg>::Subscriber vehicle_state_sub_;

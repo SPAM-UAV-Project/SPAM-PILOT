@@ -1,5 +1,5 @@
 /**
- * @file pid_sf.hpp
+ * @file pid_dom.hpp
  * @brief PID controller implementation (derivative on measurement) with integral clamping and output filtering
  * @author Tommy Zhang
  * 

@@ -14,7 +14,7 @@ namespace gnc {
     Eigen::Vector3f AttitudeController::run(Eigen::Quaternionf attitude_setpoint, Eigen::Quaternionf attitude_measurement)
     {
         // calculate the error quaternion, send the x,y,z components as setpoints with 0 measurement
-        error_quat_ = (attitude_setpoint * attitude_measurement.conjugate()).normalized();
+        error_quat_ = (attitude_measurement.conjugate() * attitude_setpoint).normalized();
 
         if (error_quat_.w() < 0.0f) {
             error_quat_.coeffs() *= -1.0f;

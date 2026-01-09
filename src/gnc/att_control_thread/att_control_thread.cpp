@@ -47,11 +47,13 @@ namespace gnc {
             // pull rest of the data
             ekf_states_sub_.pull_if_new(ekf_states_msg_);
             rc_command_sub_.pull_if_new(rc_command_msg_);
-            att_setpoint_sub_.pull_if_new(att_setpoint_msg_);
+            // att_setpoint_sub_.pull_if_new(att_setpoint_msg_);
 
             if (vehicle_state_msg_.flight_mode == FlightMode::STABILIZED ||
                 vehicle_state_msg_.flight_mode == FlightMode::ALT_HOLD) {
                 createAttSetpointFromRc(att_setpoint_msg_); // override with rc command in manual modes
+                att_setpoint_msg_.timestamp = micros();
+                att_setpoint_sub_.push(att_setpoint_msg_);
             }
             
             rate_setpoint_ = att_controller_.run(att_setpoint_msg_.q_sp, ekf_states_msg_.attitude);
