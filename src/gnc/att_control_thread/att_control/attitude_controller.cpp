@@ -14,12 +14,17 @@ namespace gnc {
     Eigen::Vector3f AttitudeController::run(Eigen::Quaternionf attitude_setpoint, Eigen::Quaternionf attitude_measurement)
     {
         // calculate the error quaternion, send the x,y,z components as setpoints with 0 measurement
-        error_quat_ = (attitude_setpoint * attitude_measurement.inverse()).normalized();
+        error_quat_ = (attitude_setpoint * attitude_measurement.conjugate()).normalized();
+
+        if (error_quat_.w() < 0.0f) {
+            error_quat_.coeffs() *= -1.0f;
+        }
 
         return {
-            pid_x_.run(error_quat_.x(), 0.0f),
-            pid_y_.run(error_quat_.y(), 0.0f),
-            pid_z_.run(error_quat_.z(), 0.0f)
+            // run pid with 2 * the vector axis for a small angle approximation
+            pid_x_.run(2 * error_quat_.x(), 0.0f),
+            pid_y_.run(2 * error_quat_.y(), 0.0f),
+            pid_z_.run(2 * error_quat_.z(), 0.0f)
         };
     }
 

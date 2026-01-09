@@ -43,7 +43,7 @@ namespace cdh {
 
             rcCommandMsg_.timestamp = micros();
             rcCommandMsg_.roll = roll_;
-            rcCommandMsg_.pitch = pitch_;
+            rcCommandMsg_.pitch = -pitch_; // invert pitch axis
             rcCommandMsg_.yaw = yaw_;
             rcCommandMsg_.throttle = throttle_;
             rcCommandMsg_.arm_switch = (rcChannels->value[4] > 1500);

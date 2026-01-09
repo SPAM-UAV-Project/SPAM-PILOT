@@ -16,13 +16,16 @@ void MavlinkComms::txTask() {
         ekf_states_sub_.pull_if_new(ekf_states_);
         imu_high_rate_sub_.pull_if_new(imu_high_rate_);
         rc_command_sub_.pull_if_new(rc_command_);
+        attitude_setpoint_sub_.pull_if_new(attitude_setpoint_);
+        rate_setpoint_sub_.pull_if_new(rate_setpoint_);
+        thrust_setpoint_sub_.pull_if_new(thrust_setpoint_);
 
-        if (tick % 50 == 0) publishHeartbeat();      // 1 Hz
-        publishAttitudeQuaternion();                  // 50 Hz
-        if (tick % 50 == 0) publishSysStatus();      // 1 Hz
+        if (tick % 50 == 0) publishHeartbeat(); publishSysStatus();      // 1 Hz
         if (tick % 5 == 0) publishLocalPosition();   // 10 Hz
         if (tick % 10 == 0) publishRcChannels();     // 5 Hz
+        publishAttitudeQuaternion();                  // 50 Hz
         publishImuHighRate();                         // 50 Hz
+        publishAttControlSetpoints();                // 50 Hz
 
         tick++;
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(20));
@@ -87,10 +90,10 @@ void MavlinkComms::publishRcChannels() {
     uint16_t chan[6];
     chan[0] = static_cast<uint16_t>(rc_command_.roll * 500.0f + 1500.0f);
     chan[1] = static_cast<uint16_t>(rc_command_.pitch * 500.0f + 1500.0f);
-    chan[2] = static_cast<uint16_t>(rc_command_.yaw * 500.0f + 1500.0f);
-    chan[3] = static_cast<uint16_t>(rc_command_.throttle * 1000.0f + 1000.0f);
+    chan[2] = static_cast<uint16_t>(rc_command_.throttle * 1000.0f + 1000.0f);
+    chan[3] = static_cast<uint16_t>(rc_command_.yaw * 500.0f + 1500.0f);
     chan[4] = rc_command_.arm_switch ? 2000 : 1000;
-    chan[5] = rc_command_.emergency_stop ? 1000 : 2000;
+    chan[5] = rc_command_.emergency_stop ? 2000 : 1000;
     
     mavlink_msg_rc_channels_pack(sys_id_, comp_id_, &msg,
         millis(),
@@ -103,17 +106,41 @@ void MavlinkComms::publishRcChannels() {
 
 void MavlinkComms::publishImuHighRate() {
     mavlink_message_t msg;
-    mavlink_msg_raw_imu_pack(sys_id_, comp_id_, &msg,
+    mavlink_msg_highres_imu_pack(sys_id_, comp_id_, &msg,
         imu_high_rate_.timestamp,
-        static_cast<int16_t>(imu_high_rate_.accel(0) * 1000.0f),  // xacc
-        static_cast<int16_t>(imu_high_rate_.accel(1) * 1000.0f),  // yacc
-        static_cast<int16_t>(imu_high_rate_.accel(2) * 1000.0f),  // zacc
-        static_cast<int16_t>(imu_high_rate_.gyro(0) * 1000.0f),   // xgyro
-        static_cast<int16_t>(imu_high_rate_.gyro(1) * 1000.0f),   // ygyro
-        static_cast<int16_t>(imu_high_rate_.gyro(2) * 1000.0f),   // zgyro
+        imu_high_rate_.accel(0) - ekf_states_.accel_bias(0),  // xacc
+        imu_high_rate_.accel(1) - ekf_states_.accel_bias(1),  // yacc
+        imu_high_rate_.accel(2) - ekf_states_.accel_bias(2),  // zacc
+        imu_high_rate_.gyro(0) - ekf_states_.gyro_bias(0),   // xgyro
+        imu_high_rate_.gyro(1) - ekf_states_.gyro_bias(1),   // ygyro
+        imu_high_rate_.gyro(2) - ekf_states_.gyro_bias(2),   // zgyro
         0, 0, 0,            // mag (not used)
         0,                  // id
-        0);                 // temperature (not used)
+        0,
+        0, 0, 0, 0
+    );                 // temperature (not used)
+    sendMessage(&msg);
+}
+
+void MavlinkComms::publishAttControlSetpoints() {
+    mavlink_message_t msg;
+    float q[4] = {
+        attitude_setpoint_.q_sp.w(),
+        attitude_setpoint_.q_sp.x(),
+        attitude_setpoint_.q_sp.y(),
+        attitude_setpoint_.q_sp.z()
+    };
+    mavlink_msg_set_attitude_target_pack(sys_id_, comp_id_, &msg,
+        millis(),
+        0,  // target system
+        0,  // target component
+        0b00000000,  // type mask (not used)
+        q,
+        rate_setpoint_.setpoint(0),
+        rate_setpoint_.setpoint(1),
+        rate_setpoint_.setpoint(2),
+        thrust_setpoint_.setpoint,
+        nullptr);  // thrust body (not used);
     sendMessage(&msg);
 }
 

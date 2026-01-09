@@ -15,8 +15,8 @@
 #include "msgs/RcCommandMsg.hpp"
 #include "msgs/AttitudeSetpointMsg.hpp"
 #include "msgs/RateSetpointMsg.hpp"
-#include "msgs/ThrustSetpointMsg.hpp"
 #include "msgs/ForceSetpointMsg.hpp"
+#include "msgs/ThrustSetpointMsg.hpp"
 #include "srvs/SwitchStateSrv.hpp"
 
 namespace cdh::mavlink {
@@ -64,9 +64,7 @@ private:
     void publishLocalPosition();
     void publishRcChannels();
     void publishImuHighRate();
-    void publishAttitudeSetpoint();
-    void publishRateSetpoint();
-    void publishThrustSetpoint();
+    void publishAttControlSetpoints();
     void publishForceSetpoint();
 
     // Handlers (mavlink_handlers.cpp)
@@ -102,10 +100,16 @@ private:
     Topic<EkfStatesMsg>::Subscriber ekf_states_sub_;
     Topic<ImuHighRateMsg>::Subscriber imu_high_rate_sub_;
     Topic<RcCommandMsg>::Subscriber rc_command_sub_;
+    Topic<AttitudeSetpointMsg>::Subscriber attitude_setpoint_sub_;
+    Topic<RateSetpointMsg>::Subscriber rate_setpoint_sub_;
+    Topic<ThrustSetpointMsg>::Subscriber thrust_setpoint_sub_;
     VehicleStateMsg vehicle_state_;
     EkfStatesMsg ekf_states_;
     ImuHighRateMsg imu_high_rate_;
     RcCommandMsg rc_command_;
+    AttitudeSetpointMsg attitude_setpoint_;
+    RateSetpointMsg rate_setpoint_;
+    ThrustSetpointMsg thrust_setpoint_;
 
 };
 

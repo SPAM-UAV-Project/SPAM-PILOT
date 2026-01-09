@@ -29,25 +29,6 @@ namespace gnc {
         void createAttSetpointFromRc(AttitudeSetpointMsg& attitude_setpoint);
         void controllerTask(void *pvParameters);
 
-        // att controller output is in rad/s
-        AttitudeController att_controller_;
-        Eigen::Vector3f rpy_setpoint_{0.f, 0.f, 0.f};
-        float att_kp_[3] = {0.f, 0.f, 0.f};
-        float att_ki_[3] = {0.f, 0.f, 0.f};
-        float att_kd_[3] = {0.f, 0.f, 0.f};
-        float att_out_max_ = M_PI;
-        float att_integ_clamp_ = 0.5f;
-        float att_alpha_d_[3] = {0.0f, 0.0f, 0.0f};
-        Eigen::Vector3f rate_setpoint_;
-
-        // yaw control from the RC
-        float yaw_ff_gain_ = 1.0f;
-        float yaw_rate_max_radps_ = 30.0f * (M_PI / 180.0f); // rad/s
-
-        // max manual pitch roll angle
-        float max_man_angle_rad_ = 25.0f * (M_PI / 180.0f); // radians
-        float dt_ms_ = 4.0f; // 250 Hz
-
         // subscribers and publishers
         Topic<AttitudeSetpointMsg>::Subscriber att_setpoint_sub_;
         Topic<EkfStatesMsg>::Subscriber ekf_states_sub_;
@@ -60,6 +41,25 @@ namespace gnc {
         RcCommandMsg rc_command_msg_;
         VehicleStateMsg vehicle_state_msg_;
         RateSetpointMsg rate_setpoint_msg_;
+
+        // yaw control from the RC
+        float yaw_ff_gain_ = 1.0f;
+        float yaw_rate_max_radps_ = 30.0f * (M_PI / 180.0f); // rad/s
+
+        // max manual pitch roll angle
+        float max_man_angle_rad_ = 25.0f * (M_PI / 180.0f); // radians
+
+        // att controller output is in rad/s
+        Eigen::Vector3f rpy_setpoint_{0.f, 0.f, 0.f};
+        float att_kp_[3] = {0.1f, 0.1f, 0.f};
+        float att_ki_[3] = {0.f, 0.f, 0.f};
+        float att_kd_[3] = {0.f, 0.f, 0.f};
+        float att_out_max_ = 100.0f * (M_PI / 180.0f);
+        float att_integ_clamp_ = 0.5f;
+        float att_alpha_d_[3] = {0.0f, 0.0f, 0.0f};
+        float dt_ms_ = 4.0f; // 250 Hz
+        Eigen::Vector3f rate_setpoint_;
+        AttitudeController att_controller_;
     };
 
 }

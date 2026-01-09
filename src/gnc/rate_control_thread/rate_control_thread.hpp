@@ -28,18 +28,6 @@ namespace gnc {
 
         void controllerTask(void *pvParameters);
 
-        // rate controller output is in normalized torque
-        RateController rate_controller_;
-        float rate_kp_[3] = {0.f, 0.f, 0.f};
-        float rate_ki_[3] = {0.f, 0.f, 0.f};
-        float rate_kd_[3] = {0.f, 0.f, 0.f};
-        float rate_out_max_ = 1.0f;
-        float rate_integ_clamp_ = 0.2f;
-        float rate_alpha_d_[3] = {0.0f, 0.0f, 0.0f};
-        Eigen::Vector3f torque_setpoint_;
-
-        float dt_ms_ = 1.0f;
-
         // subscribers and publishers
         Topic<RateSetpointMsg>::Subscriber rate_setpoint_sub_;
         Topic<EkfStatesMsg>::Subscriber ekf_states_sub_;
@@ -56,6 +44,18 @@ namespace gnc {
         VehicleStateMsg vehicle_state_msg_;
         RcCommandMsg rc_command_msg_;
         ForceSetpointMsg force_setpoint_msg_;
+
+        // rate controller output is in normalized torque
+        float rate_kp_[3] = {0.f, 0.f, 0.f};
+        float rate_ki_[3] = {0.f, 0.f, 0.f};
+        float rate_kd_[3] = {0.f, 0.f, 0.f};
+        float rate_out_max_ = 1.0f;
+        float rate_integ_clamp_ = 0.2f;
+        float rate_alpha_d_[3] = {0.0f, 0.0f, 0.0f};
+        float dt_ms_ = 1.0f;
+        Eigen::Vector3f torque_setpoint_;
+        RateController rate_controller_;
+
     };
 
 }

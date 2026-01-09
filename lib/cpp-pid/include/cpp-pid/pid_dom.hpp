@@ -93,11 +93,11 @@ public:
 
 private:
     double Ts_ = 0.1;
-    float max_, min_ = 0.0f;
-    float k_, kp_, ki_Ts_, kd_Ts_, integ_clamp_ = 0.0f;
-    float error_, derivative_, alpha_d_ = 0.0f;
-    float prev_meas_ = 0.0;
-    float output_;
+    float max_ = 0.0f, min_ = 0.0f;
+    float k_ = 1.0f, kp_ = 0.0f, ki_Ts_ = 0.0f, kd_Ts_ = 0.0f, integ_clamp_ = 0.0f;
+    float error_ = 0.0f, derivative_ = 0.0f, alpha_d_ = 0.0f;
+    float prev_meas_ = 0.0f;
+    float output_ = 0.0f;
     bool initialized_ = false;
 
     void setK(float K) { this->k_ = K; }

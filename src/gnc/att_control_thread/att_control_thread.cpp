@@ -62,6 +62,7 @@ namespace gnc {
             rate_setpoint_msg_.setpoint = rate_setpoint_;
             rate_setpoint_pub_.push(rate_setpoint_msg_);
 
+            // Serial.printf("rate setpoint: %.3f, %.3f, %.3f\r\n", rate_setpoint_.x(), rate_setpoint_.y(), rate_setpoint_.z());
             vTaskDelayUntil(&xLastWakeTime, xFrequency);
         }
     }

@@ -11,7 +11,8 @@
 #include "srvs/SwitchStateSrv.hpp"
 #include "cdh/mavlink/mavlink_comms.hpp"
 #include "cdh/mavlink/transport/usb_transport.hpp"
-#include "cdh/mavlink/transport/wifi_transport.hpp"
+//#include "cdh/mavlink/transport/wifi_transport.hpp"
+
 
 namespace flight {
 
@@ -30,6 +31,7 @@ private:
     }
     void switchState(SystemState new_state);
     bool onSwitchState(const srv::SwitchState::Request& req, srv::SwitchState::Response& res);
+    void processRcCommands();
 
     // classes
     gnc::StateEstimator state_estimator_;
@@ -37,12 +39,13 @@ private:
     gnc::AttControlThread att_control_thread_;
     gnc::RateControlThread rate_control_thread_;
 
-
     SystemState cur_state_ = SystemState::INITIALIZING;
     FlightMode cur_flight_mode_ = FlightMode::STABILIZED;
+    bool armable_ = false;
 
     // subscribers
-    Topic<RcCommandMsg>::Subscriber rc_command_sub;
+    Topic<RcCommandMsg>::Subscriber rc_command_sub_;
+    RcCommandMsg rc_command_sub_msg_;
 
     // publishers and srvs
     Topic<VehicleStateMsg>::Publisher vehicle_state_pub_;
@@ -52,7 +55,7 @@ private:
     // mavlink
     cdh::mavlink::MavlinkComms mavlink_comms_;
     cdh::mavlink::UsbTransport usb_transport_;
-    cdh::mavlink::WifiTransport wifi_transport_;
+    // cdh::mavlink::WifiTransport wifi_transport_;
 
 };
 }

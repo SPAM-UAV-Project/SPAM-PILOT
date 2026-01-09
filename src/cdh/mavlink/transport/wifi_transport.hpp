@@ -6,6 +6,7 @@
 #ifndef WIFI_TRANSPORT_HPP
 #define WIFI_TRANSPORT_HPP
 
+#ifdef WIFI_TRANSPORT
 #include "transport_base.hpp"
 #include <WiFi.h>
 
@@ -95,5 +96,6 @@ private:
 };
 
 } // namespace cdh::mavlink
+#endif // WIFI_TRANSPORT
 
 #endif // WIFI_TRANSPORT_HPP
