@@ -34,15 +34,15 @@ namespace sensors::imu
 
     // imu orientation w.r.t body
     const Eigen::Matrix3f IMU_TO_BODY_ROT = (Eigen::Matrix3f() << 
-        1.0f,  0.0f,  0.0f,
+        0.0f,  0.0f,  1.0f,
         0.0f,  1.0f,  0.0f,
-        0.0f,  0.0f, 1.0f).finished();
+        -1.0f,  0.0f, 0.0f).finished();
 
     // mag orientation w.r.t body
     const Eigen::Matrix3f MAG_TO_BODY_ROT = (Eigen::Matrix3f() << 
-        1.0f,  0.0f,  0.0f,
+        0.0f,  0.0f,  1.0f,
         0.0f,  1.0f,  0.0f,
-        0.0f,  0.0f, 1.0f).finished();
+        -1.0f,  0.0f, 0.0f).finished();
 }
 
 #endif // IMU_HPP
