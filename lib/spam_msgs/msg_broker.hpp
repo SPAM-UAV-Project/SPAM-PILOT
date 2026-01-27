@@ -20,7 +20,7 @@ public:
 
     /**
      * @brief Publisher class for publishing messages of type T
-     * @note Only one publisher per topic is allowed
+     * @note Can define multiple publishers, but only one should be actively publishing at a time
      */
     class Publisher {
     public:

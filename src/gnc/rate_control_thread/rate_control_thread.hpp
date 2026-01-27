@@ -4,7 +4,7 @@
 #include "gnc/rate_control_thread/rate_control/rate_controller.hpp"
 #include "msgs/AttitudeSetpointMsg.hpp"
 #include "msgs/EkfStatesMsg.hpp"
-#include "msgs/ForceSetpointMsg.hpp"
+#include "msgs/TorqueSetpointMsg.hpp"
 #include "msgs/ImuHighRateMsg.hpp"
 #include "msgs/ThrustSetpointMsg.hpp"
 #include "msgs/RcCommandMsg.hpp"
@@ -32,18 +32,18 @@ namespace gnc {
         Topic<RateSetpointMsg>::Subscriber rate_setpoint_sub_;
         Topic<EkfStatesMsg>::Subscriber ekf_states_sub_;
         Topic<ImuHighRateMsg>::Subscriber imu_highrate_sub_;
-        Topic<ThrustSetpointMsg>::Subscriber thrust_setpoint_sub_;
         Topic<VehicleStateMsg>::Subscriber vehicle_state_sub_;
         Topic<RcCommandMsg>::Subscriber rc_command_sub_;
-        Topic<ForceSetpointMsg>::Publisher force_setpoint_pub_;
-
+        Topic<ThrustSetpointMsg>::Subscriber thrust_setpoint_sub_;
+        Topic<TorqueSetpointMsg>::Publisher torque_setpoint_pub_;
+        
         RateSetpointMsg rate_setpoint_msg_;
         EkfStatesMsg ekf_states_msg_;
         ImuHighRateMsg imu_highrate_msg_;
         ThrustSetpointMsg thrust_setpoint_msg_;
         VehicleStateMsg vehicle_state_msg_;
         RcCommandMsg rc_command_msg_;
-        ForceSetpointMsg force_setpoint_msg_;
+        TorqueSetpointMsg torque_setpoint_msg_;
 
         // rate controller output is in normalized torque
         float rate_kp_[3] = {0.f, 0.f, 0.f};

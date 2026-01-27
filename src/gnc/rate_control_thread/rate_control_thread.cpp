@@ -40,7 +40,6 @@ namespace gnc {
             rate_setpoint_sub_.pull_if_new(rate_setpoint_msg_);
             ekf_states_sub_.pull_if_new(ekf_states_msg_);
             imu_highrate_sub_.pull_if_new(imu_highrate_msg_); // probably add a lpf on this later
-            thrust_setpoint_sub_.pull_if_new(thrust_setpoint_msg_);
             rc_command_sub_.pull_if_new(rc_command_msg_);
 
             // rate controller
@@ -49,9 +48,8 @@ namespace gnc {
             }
 
             torque_setpoint_ = rate_controller_.run(rate_setpoint_msg_.setpoint, imu_highrate_msg_.gyro - ekf_states_msg_.gyro_bias);
-
-            // perform control allocation and then send to actuator interface
-            force_setpoint_msg_.timestamp = micros();
+            torque_setpoint_msg_.timestamp = micros();
+            torque_setpoint_msg_.setpoint = torque_setpoint_;
 
             vTaskDelayUntil(&xLastWakeTime, xFrequency);
         }

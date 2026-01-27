@@ -36,6 +36,7 @@ namespace gnc {
         while (true) {
             // fetch data
             vehicle_state_sub_.pull_if_new(vehicle_state_msg_);
+            rc_command_sub_.pull_if_new(rc_command_msg_);
 
             // if not armed, then don't run the controller
             if (vehicle_state_msg_.system_state != SystemState::ARMED && vehicle_state_msg_.system_state != SystemState::ARMED_FLYING) {
@@ -44,18 +45,33 @@ namespace gnc {
                 continue;
             }
 
-            // pull rest of the data
-            ekf_states_sub_.pull_if_new(ekf_states_msg_);
-            rc_command_sub_.pull_if_new(rc_command_msg_);
-            // att_setpoint_sub_.pull_if_new(att_setpoint_msg_);
-
-            if (vehicle_state_msg_.flight_mode == FlightMode::STABILIZED ||
-                vehicle_state_msg_.flight_mode == FlightMode::ALT_HOLD) {
-                createAttSetpointFromRc(att_setpoint_msg_); // override with rc command in manual modes
+            // choose setpoints based on flight mode
+            switch (vehicle_state_msg_.flight_mode)
+            {
+            case FlightMode::STABILIZED: // subs: rc_cmd | pubs: thrust + att sp
+                createAttSetpointFromRc(att_setpoint_msg_); // overwrite with rc command in manual modes
                 att_setpoint_msg_.timestamp = micros();
-                att_setpoint_sub_.push(att_setpoint_msg_);
+                att_setpoint_debug_pub_.push(att_setpoint_msg_);
+
+                // thrust setpoint from rc (-1 to 1 mapped to 0 to 10 N)
+                if (vehicle_state_msg_.flight_mode == FlightMode::STABILIZED) {
+                    thrust_setpoint_msg_.setpoint = rc_command_msg_.throttle;; // map directly for now (adjust expo in rc controller)
+                    thrust_setpoint_pub_.push(thrust_setpoint_msg_);
+                }
+                
+            case FlightMode::ALT_HOLD: // subs: rc_cmd | pubs: att sp
+                createAttSetpointFromRc(att_setpoint_msg_); // overwrite with rc command in manual modes
+                att_setpoint_msg_.timestamp = micros();
+                att_setpoint_debug_pub_.push(att_setpoint_msg_);
+            case FlightMode::POS_HOLD: // subs: att_sp | pubs: none
+                att_setpoint_sub_.pull_if_new(att_setpoint_msg_);
+                break;
+            default:
+                break;
             }
-            
+
+            // get states and run controller
+            ekf_states_sub_.pull_if_new(ekf_states_msg_);
             rate_setpoint_ = att_controller_.run(att_setpoint_msg_.q_sp, ekf_states_msg_.attitude);
             rate_setpoint_.z() += yaw_ff_gain_ * att_setpoint_msg_.yaw_sp_ff_rate;
 

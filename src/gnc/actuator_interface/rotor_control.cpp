@@ -3,7 +3,7 @@
 #include "DShotRMT.h"
 #include "msgs/EncoderMsg.hpp"
 #include "msgs/ThrustSetpointMsg.hpp"
-#include "msgs/ForceSetpointMsg.hpp"
+#include "msgs/TorqueSetpointMsg.hpp"
 
 // logic as described in "Flight Performance of a Swashplateless Micro Air Vehicle" by James Paulos and Mark Yim
 // https://ieeexplore.ieee.org/document/7139936
@@ -16,7 +16,14 @@ namespace control::rotor
     
     // subscribers
     Topic<EncoderMsg>::Subscriber encoder_sub;
-    Topic<ForceSetpointMsg>::Subscriber force_sp_sub;
+    Topic<ThrustSetpointMsg>::Subscriber thrust_sp_sub;
+    Topic<TorqueSetpointMsg>::Subscriber torque_sp_sub;
+
+    // setpoint messages
+    ThrustSetpointMsg thrust_sp_msg;
+    TorqueSetpointMsg torque_sp_msg;
+    EncoderMsg encoder_msg;
+
 
     // timer interrupts
     static hw_timer_t* rotorControlTimer = NULL;
@@ -54,30 +61,43 @@ namespace control::rotor
     void rotorControlTask(void *pvParameters)
     {
         float amplitude = 0.0f;
+        float amp_cut_in = 0.16f;
         float phase = 0.0f;
+        float phase_lag = M_PI / 6.0f; // 30 degrees phase lag
         float output_throttle_fraction;
 
-        EncoderMsg enc_local;
-        ForceSetpointMsg force_sp_local;
-
+        Eigen::Vector4f motor_forces = Eigen::Vector4f::Zero(); // f1x, f1y, f1z, f2z
+        Eigen::Vector4f body_commands = Eigen::Vector4f::Zero(); // thrust, torque_x, torque_y, torque_z
+        Eigen::Matrix4f allocation_matrix;
+        
         while (true)
         {
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);            
 
             // receive data
-            encoder_sub.pull_if_new(enc_local);
-            force_sp_sub.pull_if_new(force_sp_local);
+            encoder_sub.pull_if_new(encoder_msg);
+            thrust_sp_sub.pull_if_new(thrust_sp_msg);
+            if (torque_sp_sub.pull_if_new(torque_sp_msg)){
+                // allocate motor commands
+                body_commands << thrust_sp_msg.setpoint, torque_sp_msg.setpoint.x(), torque_sp_msg.setpoint.y(), torque_sp_msg.setpoint.z();
+                // map to motor forces
+                motor_forces = allocation_matrix * body_commands;
+            }
 
-            if (force_sp_local.motor1.x() != 0.0f || force_sp_local.motor1.y() != 0.0f)
+            if (motor_forces[0] != 0.0f || motor_forces[1] != 0.0f)
             {
                 // for swashplateless rotor control, we need to find an amplitude and a phase lag
-                amplitude = AMP_OFFSET + sqrt(SQ(force_sp_local.motor1.x()) + SQ(force_sp_local.motor1.y()));
-                phase = atan2(force_sp_local.motor1.y(), force_sp_local.motor1.x());
+                amplitude = amp_cut_in + sqrt(motor_forces[0] * motor_forces[0] + motor_forces[1] * motor_forces[1]);
+                phase = atan2(motor_forces[1], motor_forces[0]);
+
                 // convert to an oscillatory throttle response
-                output_throttle_fraction = force_sp_local.motor1.z() + amplitude * cos(enc_local.angle_rad - phase);
+                output_throttle_fraction = ((motor_forces[3]) - motor_forces[2]) + amplitude * cos(encoder_msg.angle_rad - phase - phase_lag);
+                // clamp output from arming throttle to 100%
+                // print output and encoder
+                //output_throttle_fraction = std::max(ARMING_THROTTLE, std::min(1.0f, output_throttle_fraction));
             } else {
                 // no pitch or roll command, just set throttle directly
-                output_throttle_fraction = force_sp_local.motor1.z();
+                output_throttle_fraction = ((motor_forces[3]) - motor_forces[2]); // to do fix yaw allocation and add second dshot output
             }
             sendToDshot(output_throttle_fraction);
         }

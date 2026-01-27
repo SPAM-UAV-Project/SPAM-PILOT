@@ -15,7 +15,7 @@
 #include "msgs/RcCommandMsg.hpp"
 #include "msgs/AttitudeSetpointMsg.hpp"
 #include "msgs/RateSetpointMsg.hpp"
-#include "msgs/ForceSetpointMsg.hpp"
+#include "msgs/TorqueSetpointMsg.hpp"
 #include "msgs/ThrustSetpointMsg.hpp"
 #include "srvs/SwitchStateSrv.hpp"
 
