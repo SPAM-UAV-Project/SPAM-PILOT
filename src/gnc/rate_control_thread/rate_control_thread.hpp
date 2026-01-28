@@ -56,6 +56,9 @@ namespace gnc {
         Eigen::Vector3f torque_setpoint_;
         RateController rate_controller_;
 
+        Eigen::Vector3f inertia_matrix_ = Eigen::Vector3f(0.003f, 0.003f, 0.001f); // to update from sysid
+
+
     };
 
 }

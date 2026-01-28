@@ -47,7 +47,7 @@ namespace gnc {
                 thrust_setpoint_msg_.setpoint = rc_command_msg_.throttle; // override with rc command in stabilized mode
             }
 
-            torque_setpoint_ = rate_controller_.run(rate_setpoint_msg_.setpoint, imu_highrate_msg_.gyro - ekf_states_msg_.gyro_bias);
+            torque_setpoint_ = inertia_matrix_.asDiagonal() * rate_controller_.run(rate_setpoint_msg_.setpoint, imu_highrate_msg_.gyro - ekf_states_msg_.gyro_bias);
             torque_setpoint_msg_.timestamp = micros();
             torque_setpoint_msg_.setpoint = torque_setpoint_;
 

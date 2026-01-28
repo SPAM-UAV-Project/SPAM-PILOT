@@ -10,6 +10,10 @@
 #define PIN_IMU_SCL 4
 #define PIN_IMU_INT 6
 
+// Motor pins
+#define MOTOR1_PIN 18
+#define MOTOR2_PIN 19
+
 
 
 #endif // PIN_DEFS_HPP
