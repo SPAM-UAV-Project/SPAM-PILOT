@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #if ARDUINO >= 100
 #include "Arduino.h"
+#include "Wire.h"
 #else
 #include "WProgram.h"
 #endif
@@ -97,7 +98,7 @@ class HMC5883L
     void readRawBurst(int16_t* mx, int16_t* my, int16_t* mz);
 
 
-	bool begin(void);
+	bool begin(TwoWire* wire = nullptr);
 
     bool isReady();
     void readRaw(int16_t* mx, int16_t* my, int16_t* mz);
@@ -119,6 +120,7 @@ class HMC5883L
 	
     private:
 
+	TwoWire* _wire;
 	float mgPerDigit;
 	Vector v;
 	int xOffset, yOffset, zOffset;

@@ -12,7 +12,9 @@
 
 namespace sensors::imu
 {
-    MPU6050 mpu;
+    TwoWire imuI2C = TwoWire(1);  // use I2C bus 1 for IMU
+
+    MPU6050 mpu(MPU6050_DEFAULT_ADDRESS, &imuI2C);
     HMC5883L mag;
     Topic<ImuHighRateMsg>::Publisher imu_pub;
     Topic<ImuMagMsg>::Publisher mag_pub;
@@ -39,8 +41,8 @@ namespace sensors::imu
         i2c_mutex = xSemaphoreCreateMutex();
 
         clearI2CBus(PIN_IMU_SDA, PIN_IMU_SCL);
-        Wire.begin(PIN_IMU_SDA, PIN_IMU_SCL);
-        Wire.setClock(400000); // 400kHz 
+        imuI2C.begin(PIN_IMU_SDA, PIN_IMU_SCL);
+        imuI2C.setClock(400000); // 400kHz 
 
         // setup MPU6050
         mpu.initialize();
@@ -68,8 +70,8 @@ namespace sensors::imu
 
         delay(100);
 
-        // setup QMC5883L
-        if (!mag.begin()) {
+        // setup HMC5883L - pass the imuI2C instance
+        if (!mag.begin(&imuI2C)) {
             Serial.println("[IMU]: ERROR - Cannot communicate with HMC5883L!");
             return;
         }

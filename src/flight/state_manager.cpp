@@ -79,6 +79,9 @@ void StateManager::stateManagerTask() {
         {
         case SystemState::INITIALIZING:
             sensors::imu::initIMU();
+            // delay(200);  // Allow I2C bus 1 to stabilize
+            sensors::encoder::initEncoder();
+            // delay(200);  // Allow I2C bus 0 to stabilize
             state_estimator_.init();
             radio_controller_.init();
 

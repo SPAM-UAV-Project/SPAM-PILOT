@@ -9,7 +9,7 @@
 #include "cdh/radio_controller/rc.hpp"
 #include "cdh/mavlink/mavlink_comms.hpp"
 #include "cdh/mavlink/transport/usb_transport.hpp"
-//#include "cdh/mavlink/transport/wifi_transport.hpp"
+#include "cdh/mavlink/transport/wifi_transport.hpp"
 
 // msgs and srvs
 #include "msgs/VehicleStateMsg.hpp"
@@ -57,7 +57,7 @@ private:
     // mavlink
     cdh::mavlink::MavlinkComms mavlink_comms_;
     cdh::mavlink::UsbTransport usb_transport_;
-    // cdh::mavlink::WifiTransport wifi_transport_;
+    cdh::mavlink::WifiTransport wifi_transport_;
 
 };
 }

@@ -17,6 +17,7 @@
 #include "msgs/RateSetpointMsg.hpp"
 #include "msgs/TorqueSetpointMsg.hpp"
 #include "msgs/ThrustSetpointMsg.hpp"
+#include "msgs/EncoderMsg.hpp"
 #include "srvs/SwitchStateSrv.hpp"
 
 namespace cdh::mavlink {
@@ -65,7 +66,8 @@ private:
     void publishRcChannels();
     void publishImuHighRate();
     void publishAttControlSetpoints();
-    void publishForceSetpoint();
+    void publishEncoderAngle();
+    void publishMotorForceCommands();
 
     // Handlers (mavlink_handlers.cpp)
     void handleHeartbeat(const mavlink_message_t* msg);
@@ -103,6 +105,7 @@ private:
     Topic<AttitudeSetpointMsg>::Subscriber attitude_setpoint_sub_;
     Topic<RateSetpointMsg>::Subscriber rate_setpoint_sub_;
     Topic<ThrustSetpointMsg>::Subscriber thrust_setpoint_sub_;
+    Topic<EncoderMsg>::Subscriber encoder_sub_;
     VehicleStateMsg vehicle_state_;
     EkfStatesMsg ekf_states_;
     ImuHighRateMsg imu_high_rate_;
@@ -110,6 +113,7 @@ private:
     AttitudeSetpointMsg attitude_setpoint_;
     RateSetpointMsg rate_setpoint_;
     ThrustSetpointMsg thrust_setpoint_;
+    EncoderMsg encoder_;
 
 };
 

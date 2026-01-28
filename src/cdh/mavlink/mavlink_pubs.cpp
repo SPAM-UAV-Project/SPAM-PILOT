@@ -19,10 +19,19 @@ void MavlinkComms::txTask() {
         attitude_setpoint_sub_.pull_if_new(attitude_setpoint_);
         rate_setpoint_sub_.pull_if_new(rate_setpoint_);
         thrust_setpoint_sub_.pull_if_new(thrust_setpoint_);
+        encoder_sub_.pull_if_new(encoder_);
 
-        if (tick % 50 == 0) publishHeartbeat(); publishSysStatus();      // 1 Hz
-        if (tick % 5 == 0) publishLocalPosition();   // 10 Hz
-        if (tick % 10 == 0) publishRcChannels();     // 5 Hz
+        if (tick % 50 == 0) { // 1 Hz
+            publishHeartbeat(); 
+            publishSysStatus();      
+        } 
+        if (tick % 5 == 0) {
+            publishLocalPosition(); 
+            publishEncoderAngle();   // 10 Hz
+        }
+        if (tick % 10 == 0) {
+            publishRcChannels();     // 5 Hz
+        }
         publishAttitudeQuaternion();                  // 50 Hz
         publishImuHighRate();                         // 50 Hz
         publishAttControlSetpoints();                // 50 Hz
@@ -141,6 +150,15 @@ void MavlinkComms::publishAttControlSetpoints() {
         rate_setpoint_.setpoint(2),
         thrust_setpoint_.setpoint,
         nullptr);  // thrust body (not used);
+    sendMessage(&msg);
+}
+
+void MavlinkComms::publishEncoderAngle() {
+    mavlink_message_t msg;
+    mavlink_msg_named_value_float_pack(sys_id_, comp_id_, &msg,
+        millis(),
+        "enc_angle",
+        encoder_.angle_rad);
     sendMessage(&msg);
 }
 

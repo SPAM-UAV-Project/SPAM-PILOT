@@ -22,7 +22,7 @@ void MavlinkComms::init() {
     }
 
     xTaskCreate(rxTaskEntry, "MavRxTask", 4096, this, 2, &rxTaskHandle);
-    xTaskCreate(txTaskEntry, "MavTxTask", 4096, this, 1, &txTaskHandle);
+    xTaskCreate(txTaskEntry, "MavTxTask", 8192, this, 2, &txTaskHandle);
     
     Serial.println("[MavlinkComms] Tasks started");
 }
