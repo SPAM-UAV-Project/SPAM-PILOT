@@ -99,6 +99,12 @@ namespace sensors::imu
         int16_t imu_raw[6] = {0};
         ImuHighRateMsg imu_msg;
 
+        // low pass filter
+        Eigen::Vector3f filtered_gyro = Eigen::Vector3f::Zero();
+        float f_c = 30.0f; // cutoff freq
+        float f_s = 1000.0f; // sample freq
+        Eigen::Vector3f alpha_lp = (1- expf(-2*M_PI*f_c / f_s)) * Eigen::Vector3f::Ones();
+
         while (1){
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
@@ -119,7 +125,10 @@ namespace sensors::imu
             imu_msg.gyro = IMU_TO_BODY_ROT * IMU_TO_FRD_ROT * imu_msg.gyro;
             imu_msg.accel = IMU_TO_BODY_ROT * IMU_TO_FRD_ROT * imu_msg.accel;
 
-            imu_pub.push(imu_msg);
+            filtered_gyro = alpha_lp.asDiagonal() * imu_msg.gyro + (Eigen::Vector3f::Ones() - alpha_lp).asDiagonal() * filtered_gyro;
+            imu_msg.gyro_filtered = filtered_gyro;  
+
+            imu_pub.push(imu_msg);            
         }
     }
 

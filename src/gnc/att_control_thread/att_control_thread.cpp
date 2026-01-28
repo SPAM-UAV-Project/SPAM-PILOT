@@ -37,12 +37,21 @@ namespace gnc {
             // fetch data
             vehicle_state_sub_.pull_if_new(vehicle_state_msg_);
             rc_command_sub_.pull_if_new(rc_command_msg_);
+            ekf_states_sub_.pull_if_new(ekf_states_msg_);
 
             // if not armed, then don't run the controller
             if (vehicle_state_msg_.system_state != SystemState::ARMED && vehicle_state_msg_.system_state != SystemState::ARMED_FLYING) {
                 att_controller_.reset();
+                rpy_setpoint_.z() = NAN; // reset yaw setpoint
                 vTaskDelayUntil(&xLastWakeTime, xFrequency);
                 continue;
+            }
+
+            if (!std::isfinite(rpy_setpoint_.z())) {
+                // first time arming, initialize yaw setpoint to current heading
+                Eigen::Quaternionf q = ekf_states_msg_.attitude;
+                rpy_setpoint_.z() = atan2f(2.0f * (q.w() * q.z() + q.x() * q.y()), 
+                                                1.0f - 2.0f * (q.y() * q.y() + q.z() * q.z()));            
             }
 
             // choose setpoints based on flight mode
@@ -70,8 +79,7 @@ namespace gnc {
                 break;
             }
 
-            // get states and run controller
-            ekf_states_sub_.pull_if_new(ekf_states_msg_);
+            // run controller
             rate_setpoint_ = att_controller_.run(att_setpoint_msg_.q_sp, ekf_states_msg_.attitude);
             rate_setpoint_.z() += yaw_ff_gain_ * att_setpoint_msg_.yaw_sp_ff_rate;
 

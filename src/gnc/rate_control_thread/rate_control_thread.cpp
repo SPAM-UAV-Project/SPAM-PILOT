@@ -39,7 +39,7 @@ namespace gnc {
             // pull rest of the data
             rate_setpoint_sub_.pull_if_new(rate_setpoint_msg_);
             ekf_states_sub_.pull_if_new(ekf_states_msg_);
-            imu_highrate_sub_.pull_if_new(imu_highrate_msg_); // probably add a lpf on this later
+            imu_highrate_sub_.pull_if_new(imu_highrate_msg_);
             rc_command_sub_.pull_if_new(rc_command_msg_);
 
             // rate controller
@@ -47,7 +47,8 @@ namespace gnc {
                 thrust_setpoint_msg_.setpoint = rc_command_msg_.throttle; // override with rc command in stabilized mode
             }
 
-            torque_setpoint_ = inertia_matrix_.asDiagonal() * rate_controller_.run(rate_setpoint_msg_.setpoint, imu_highrate_msg_.gyro - ekf_states_msg_.gyro_bias);
+            // pass filtered gyro into controller
+            torque_setpoint_ = inertia_matrix_.asDiagonal() * rate_controller_.run(rate_setpoint_msg_.setpoint, imu_highrate_msg_.gyro_filtered - ekf_states_msg_.gyro_bias);
             torque_setpoint_msg_.timestamp = micros();
             torque_setpoint_msg_.setpoint = torque_setpoint_;
 

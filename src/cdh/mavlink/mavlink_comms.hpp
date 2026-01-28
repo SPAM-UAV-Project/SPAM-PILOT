@@ -106,6 +106,7 @@ private:
     Topic<RateSetpointMsg>::Subscriber rate_setpoint_sub_;
     Topic<ThrustSetpointMsg>::Subscriber thrust_setpoint_sub_;
     Topic<EncoderMsg>::Subscriber encoder_sub_;
+
     VehicleStateMsg vehicle_state_;
     EkfStatesMsg ekf_states_;
     ImuHighRateMsg imu_high_rate_;

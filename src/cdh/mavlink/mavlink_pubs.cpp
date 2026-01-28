@@ -120,9 +120,9 @@ void MavlinkComms::publishImuHighRate() {
         imu_high_rate_.accel(0) - ekf_states_.accel_bias(0),  // xacc
         imu_high_rate_.accel(1) - ekf_states_.accel_bias(1),  // yacc
         imu_high_rate_.accel(2) - ekf_states_.accel_bias(2),  // zacc
-        imu_high_rate_.gyro(0) - ekf_states_.gyro_bias(0),   // xgyro
-        imu_high_rate_.gyro(1) - ekf_states_.gyro_bias(1),   // ygyro
-        imu_high_rate_.gyro(2) - ekf_states_.gyro_bias(2),   // zgyro
+        imu_high_rate_.gyro_filtered(0) - ekf_states_.gyro_bias(0),  // xgyro
+        imu_high_rate_.gyro_filtered(1) - ekf_states_.gyro_bias(1),  // ygyro
+        imu_high_rate_.gyro_filtered(2) - ekf_states_.gyro_bias(2),  // zgyro
         0, 0, 0,            // mag (not used)
         0,                  // id
         0,

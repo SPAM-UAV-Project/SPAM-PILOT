@@ -14,6 +14,7 @@ struct ImuHighRateMsg
     uint64_t timestamp = 0;
     Eigen::Vector3f accel = Eigen::Vector3f::Zero();
     Eigen::Vector3f gyro = Eigen::Vector3f::Zero();
+    Eigen::Vector3f gyro_filtered = Eigen::Vector3f::Zero();
 };
 
 #endif // IMU_HIGH_RATE_MSG_HPP
