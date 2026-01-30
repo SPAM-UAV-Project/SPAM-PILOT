@@ -62,11 +62,9 @@ namespace gnc {
                 att_setpoint_msg_.timestamp = micros();
                 att_setpoint_debug_pub_.push(att_setpoint_msg_);
 
-                // thrust setpoint from rc (-1 to 1 mapped to 0 to 10 N)
-                if (vehicle_state_msg_.flight_mode == FlightMode::STABILIZED) {
-                    thrust_setpoint_msg_.setpoint = rc_command_msg_.throttle;; // map directly for now (adjust expo in rc controller)
-                    thrust_setpoint_pub_.push(thrust_setpoint_msg_);
-                }
+                // thrust setpoint from rc (0 to 1 mapped to 0 to 10 N)
+                thrust_setpoint_msg_.setpoint = -10.0f * rc_command_msg_.throttle; // map directly for now (adjust expo in rc controller)
+                thrust_setpoint_pub_.push(thrust_setpoint_msg_);
                 
             case FlightMode::ALT_HOLD: // subs: rc_cmd | pubs: att sp
                 createAttSetpointFromRc(att_setpoint_msg_); // overwrite with rc command in manual modes

@@ -12,6 +12,8 @@
 #include "msgs/EncoderMsg.hpp"
 #include "msgs/ThrustSetpointMsg.hpp"
 #include "msgs/TorqueSetpointMsg.hpp"
+#include "msgs/MotorForcesMsg.hpp"
+#include "msgs/VehicleStateMsg.hpp"
 
 
 namespace gnc {
@@ -26,7 +28,9 @@ namespace gnc {
     private:
 
         static void onRotorControlTimerEntry() {
-            static_cast<ControlAllocator*>(nullptr)->onRotorControlTimer();
+            if (instance_ != nullptr) {
+                instance_->onRotorControlTimer();
+            }
         }
         
         void onRotorControlTimer();
@@ -47,15 +51,21 @@ namespace gnc {
         Topic<EncoderMsg>::Subscriber encoder_sub_;
         Topic<ThrustSetpointMsg>::Subscriber thrust_sp_sub_;
         Topic<TorqueSetpointMsg>::Subscriber torque_sp_sub_;
+        Topic<VehicleStateMsg>::Subscriber vehicle_state_sub_;
+        Topic<MotorForcesMsg>::Publisher motor_forces_pub_;
 
         // setpoint messages
         ThrustSetpointMsg thrust_sp_msg_;
         TorqueSetpointMsg torque_sp_msg_;
+        VehicleStateMsg vehicle_state_;
         EncoderMsg encoder_msg_;
+        MotorForcesMsg motor_forces_msg_;
+        
 
         // freertos stuff
         TaskHandle_t allocator_task_handle_ = nullptr;
         static hw_timer_t* rotor_control_timer_;
+        static ControlAllocator* instance_;
 
 
     };

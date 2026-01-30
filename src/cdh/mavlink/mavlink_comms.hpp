@@ -17,6 +17,7 @@
 #include "msgs/RateSetpointMsg.hpp"
 #include "msgs/TorqueSetpointMsg.hpp"
 #include "msgs/ThrustSetpointMsg.hpp"
+#include "msgs/MotorForcesMsg.hpp"
 #include "msgs/EncoderMsg.hpp"
 #include "srvs/SwitchStateSrv.hpp"
 
@@ -67,7 +68,7 @@ private:
     void publishImuHighRate();
     void publishAttControlSetpoints();
     void publishEncoderAngle();
-    void publishMotorForceCommands();
+    void publishMotorForces();
 
     // Handlers (mavlink_handlers.cpp)
     void handleHeartbeat(const mavlink_message_t* msg);
@@ -106,6 +107,7 @@ private:
     Topic<RateSetpointMsg>::Subscriber rate_setpoint_sub_;
     Topic<ThrustSetpointMsg>::Subscriber thrust_setpoint_sub_;
     Topic<EncoderMsg>::Subscriber encoder_sub_;
+    Topic<MotorForcesMsg>::Subscriber motor_forces_sub_;
 
     VehicleStateMsg vehicle_state_;
     EkfStatesMsg ekf_states_;
@@ -115,6 +117,7 @@ private:
     RateSetpointMsg rate_setpoint_;
     ThrustSetpointMsg thrust_setpoint_;
     EncoderMsg encoder_;
+    MotorForcesMsg motor_forces_;
 
 };
 

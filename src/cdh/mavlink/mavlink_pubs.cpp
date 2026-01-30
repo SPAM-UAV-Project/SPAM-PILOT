@@ -20,6 +20,7 @@ void MavlinkComms::txTask() {
         rate_setpoint_sub_.pull_if_new(rate_setpoint_);
         thrust_setpoint_sub_.pull_if_new(thrust_setpoint_);
         encoder_sub_.pull_if_new(encoder_);
+        motor_forces_sub_.pull_if_new(motor_forces_);
 
         if (tick % 50 == 0) { // 1 Hz
             publishHeartbeat(); 
@@ -35,6 +36,7 @@ void MavlinkComms::txTask() {
         publishAttitudeQuaternion();                  // 50 Hz
         publishImuHighRate();                         // 50 Hz
         publishAttControlSetpoints();                // 50 Hz
+        publishMotorForces(); // 50 Hz
 
         tick++;
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(20));
@@ -159,6 +161,22 @@ void MavlinkComms::publishEncoderAngle() {
         millis(),
         "enc_angle",
         encoder_.angle_rad);
+    sendMessage(&msg);
+}
+
+void MavlinkComms::publishMotorForces() {
+    mavlink_message_t msg;
+    float data[4] = {
+        motor_forces_.setpoint(0),
+        motor_forces_.setpoint(1),
+        motor_forces_.setpoint(2),
+        motor_forces_.setpoint(3)
+    };
+    mavlink_msg_debug_float_array_pack(sys_id_, comp_id_, &msg,
+        micros(),        // time_usec (microseconds)
+        "motor_f",  // name
+        0,               // array_id
+        data);           // float array
     sendMessage(&msg);
 }
 

@@ -42,15 +42,11 @@ namespace gnc {
             imu_highrate_sub_.pull_if_new(imu_highrate_msg_);
             rc_command_sub_.pull_if_new(rc_command_msg_);
 
-            // rate controller
-            if (vehicle_state_msg_.flight_mode == FlightMode::STABILIZED) {
-                thrust_setpoint_msg_.setpoint = rc_command_msg_.throttle; // override with rc command in stabilized mode
-            }
-
             // pass filtered gyro into controller
             torque_setpoint_ = inertia_matrix_.asDiagonal() * rate_controller_.run(rate_setpoint_msg_.setpoint, imu_highrate_msg_.gyro_filtered - ekf_states_msg_.gyro_bias);
             torque_setpoint_msg_.timestamp = micros();
             torque_setpoint_msg_.setpoint = torque_setpoint_;
+            torque_setpoint_pub_.push(torque_setpoint_msg_);
 
             vTaskDelayUntil(&xLastWakeTime, xFrequency);
         }

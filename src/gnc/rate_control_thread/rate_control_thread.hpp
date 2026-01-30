@@ -34,28 +34,26 @@ namespace gnc {
         Topic<ImuHighRateMsg>::Subscriber imu_highrate_sub_;
         Topic<VehicleStateMsg>::Subscriber vehicle_state_sub_;
         Topic<RcCommandMsg>::Subscriber rc_command_sub_;
-        Topic<ThrustSetpointMsg>::Subscriber thrust_setpoint_sub_;
         Topic<TorqueSetpointMsg>::Publisher torque_setpoint_pub_;
         
         RateSetpointMsg rate_setpoint_msg_;
         EkfStatesMsg ekf_states_msg_;
         ImuHighRateMsg imu_highrate_msg_;
-        ThrustSetpointMsg thrust_setpoint_msg_;
         VehicleStateMsg vehicle_state_msg_;
         RcCommandMsg rc_command_msg_;
         TorqueSetpointMsg torque_setpoint_msg_;
 
         // rate controller output is in normalized torque
-        float rate_kp_[3] = {0.f, 0.f, 0.f};
-        float rate_ki_[3] = {0.f, 0.f, 0.f};
-        float rate_kd_[3] = {0.f, 0.f, 0.f};
-        float rate_out_max_ = 1.0f;
-        float rate_integ_clamp_ = 0.2f;
-        float rate_alpha_d_[3] = {0.0f, 0.0f, 0.0f};
+        float rate_kp_[3] = {3.35f, 3.35f, 3.f};
+        float rate_ki_[3] = {1.36f, 1.36f, 2.f};
+        float rate_kd_[3] = {0.723f, 0.723f, 0.f};
+        float rate_out_max_ = 5.0f;
+        float rate_integ_clamp_ = 2.0f;
+        float rate_alpha_d_[3] = {0.15f, 0.15f, 0.15f};
         float dt_ms_ = 1.0f;
         Eigen::Vector3f torque_setpoint_;
         RateController rate_controller_;
-        Eigen::Vector3f inertia_matrix_ = Eigen::Vector3f(0.003f, 0.003f, 0.001f); // to update from sysid
+        Eigen::Vector3f inertia_matrix_ = Eigen::Vector3f(0.004013f, 0.004013f, 0.0007873f); // to update from sysid
 
     };
 

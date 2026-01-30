@@ -86,9 +86,9 @@ void StateManager::stateManagerTask() {
             radio_controller_.init();
 
             // initialize controllers
-            att_control_thread_ .init();
+            att_control_thread_.init();
             rate_control_thread_.init();
-            // control::rotor::initRotor();
+            control_allocator_.initRotor();
 #ifdef MAVLINK_ENABLED
             // initialize mavlink
             mavlink_comms_.registerTransport(&usb_transport_);

@@ -1,11 +1,13 @@
 #include "rotor_control.hpp"
 
-
 // logic as described in "Flight Performance of a Swashplateless Micro Air Vehicle" by James Paulos and Mark Yim
 // https://ieeexplore.ieee.org/document/7139936
 
 namespace gnc
 {
+    hw_timer_t* ControlAllocator::rotor_control_timer_ = nullptr;
+    ControlAllocator* ControlAllocator::instance_ = nullptr;
+    
     // control timer interrupt for precise timing
     void IRAM_ATTR ControlAllocator::onRotorControlTimer() {
         BaseType_t xHigherPriorityTaskWoken = pdFALSE;
@@ -18,6 +20,8 @@ namespace gnc
     
     void ControlAllocator::initRotor()
     {
+        instance_ = this;
+        
         motor1_.begin();
         motor2_.begin();
         motor1_.sendThrottle(0);
@@ -28,7 +32,7 @@ namespace gnc
             delay(10);
         }
 
-        xTaskCreatePinnedToCore(allocatorTaskEntry, "Control Allocator Task", 4096, NULL, 5, &allocator_task_handle_, 0);
+        xTaskCreate(allocatorTaskEntry, "Control Allocator Task", 8192, this, 4, &allocator_task_handle_);
     
         // create timer
         Serial.println("[Rotor Controller]: Setting up rotor control timer...");
@@ -40,19 +44,22 @@ namespace gnc
 
     void ControlAllocator::allocatorTask(void *pvParameters)
     {
+        Serial.println("[Rotor Controller]: Allocator task started!");
+        
         float amplitude = 0.0f;
         float phase = 0.0f;
         float motor1_output = 0.0f;
         float motor2_output = 0.0f;
         float arming_throttle = 0.10f;
         float max_blade_angle = 0.30f; // radians
+        long start_time = millis();
 
         // sysid vars
         float torque_coeff_top = 0.2051;
         float torque_coeff_bot = 0.1455;
         float thrust_coeff_top = 10.9837;
         float thrust_coeff_bot = 9.3460;    
-        float top_motor_arm = 0.08f; // meters    
+        float top_motor_arm = 0.18f; // meters    
         float amp_cut_in = 0.16f;
         float phase_lag = M_PI / 6.0f; // 30 degrees phase lag
 
@@ -67,17 +74,17 @@ namespace gnc
             0, 0, torque_coeff_top, -torque_coeff_bot;
 
         Eigen::Matrix4f allocation_matrix = effectiveness_matrix.inverse();
-
         Eigen::Vector2f blade_xy = Eigen::Vector2f::Zero(); //  blade flapping angle
         Eigen::Vector2f u_motor_sp = Eigen::Vector2f::Zero(); // motor commands
         
         while (true)
         {
-            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);            
+            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
             // receive data
             encoder_sub_.pull_if_new(encoder_msg_);
             thrust_sp_sub_.pull_if_new(thrust_sp_msg_);
+            vehicle_state_sub_.pull_if_new(vehicle_state_);
 
             // this runs at around 1000 hz
             if (torque_sp_sub_.pull_if_new(torque_sp_msg_)){
@@ -85,9 +92,9 @@ namespace gnc
                 body_commands << thrust_sp_msg_.setpoint, torque_sp_msg_.setpoint.x(), torque_sp_msg_.setpoint.y(), torque_sp_msg_.setpoint.z();
                 // map to motor forces
                 motor_forces = allocation_matrix * body_commands;
-                // convert to u_top, u_bot, bx, by
-                blade_xy.x() = -motor_forces[0] / (motor_forces(3) + 1e-6f); // avoid div by zero
-                blade_xy.y() = -motor_forces[1] / (motor_forces(3) + 1e-6f); // avoid div by zero
+                // convert to bx, by, u_top, u_bot
+                blade_xy.x() = -motor_forces(0) / (motor_forces(3) + 1e-6f); // avoid div by zero
+                blade_xy.y() = -motor_forces(1) / (motor_forces(3) + 1e-6f); // avoid div by zero
                 // u = sqrt(thrust / k)
                 u_motor_sp(0) = sqrt(std::max(0.0f, motor_forces(3) / thrust_coeff_top));
                 u_motor_sp(1) = sqrt(std::max(0.0f, motor_forces(3) / thrust_coeff_bot));
@@ -96,12 +103,40 @@ namespace gnc
                 amplitude = amp_cut_in + sqrt(SQ(blade_xy(0)) + SQ(blade_xy(1)));
                 amplitude = std::min(amplitude, max_blade_angle); // cap amplitude to avoid excessive commands / vibrations
                 phase = atan2(blade_xy(1), blade_xy(0));
+
+                // send to motor forces message at 100 hz just for debugging
+                if (millis() - start_time >= 10) {
+                    motor_forces_msg_.setpoint = motor_forces;
+                    motor_forces_pub_.push(motor_forces_msg_);
+                    start_time = millis();
+                }
+            } else {
+                // controllers not active, send 0 throttle
+                u_motor_sp(0) = 0.0f;
+                u_motor_sp(1) = 0.0f;
+                amplitude = 0.0f;
+                phase = 0.0f;
             }
 
             // convert to an oscillatory throttle response
             motor1_output = u_motor_sp(0) + amplitude * cos(encoder_msg_.angle_rad - phase - phase_lag);
             // motor 2 just controls yaw and thrust
             motor2_output = u_motor_sp(1);
+
+            // constrain from arming throttle to 1.0
+            motor1_output = std::max(arming_throttle, std::min(1.0f, motor1_output));
+            motor2_output = std::max(arming_throttle, std::min(1.0f, motor2_output));
+
+            // disarm if state not explicitly ARMED or no recent state update
+            bool is_armed = (vehicle_state_.system_state == SystemState::ARMED ||
+                            vehicle_state_.system_state == SystemState::ARMED_FLYING);
+            bool state_stale = (micros() - vehicle_state_.timestamp) > 1000000; // 1 second timeout
+            
+            if (!is_armed || state_stale) {
+                // Disarmed or stale state - force zero throttle
+                motor1_output = 0.0f;
+                motor2_output = 0.0f;
+            } 
 
             sendToDshot(motor1_output, motor1_);
             sendToDshot(motor2_output, motor2_);
@@ -111,6 +146,7 @@ namespace gnc
     void ControlAllocator::sendToDshot(float& throttle_fraction, DShotRMT &motor)
     { 
         if (throttle_fraction <= 0.0f) {
+            motor.sendThrottle(0);
             return;
         }
         // ensure throttle_fraction is within [0.0, 1.0]
