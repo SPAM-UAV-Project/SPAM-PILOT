@@ -54,7 +54,7 @@ namespace gnc {
 
         // att controller output is in rad/s
         Eigen::Vector3f rpy_setpoint_{0.f, 0.f, NAN};
-        float att_kp_[3] = {0.5f, 0.5f, 0.5f};
+        float att_kp_[3] = {1.0f, 1.0f, 1.0f};
         float att_ki_[3] = {0.f, 0.f, 0.f};
         float att_kd_[3] = {0.f, 0.f, 0.f};
         float att_out_max_ = 100.0f * (M_PI / 180.0f);

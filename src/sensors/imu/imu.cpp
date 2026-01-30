@@ -101,7 +101,7 @@ namespace sensors::imu
 
         // low pass filter
         Eigen::Vector3f filtered_gyro = Eigen::Vector3f::Zero();
-        float f_c = 30.0f; // cutoff freq
+        float f_c = 25.0f; // cutoff freq
         float f_s = 1000.0f; // sample freq
         Eigen::Vector3f alpha_lp = (1- expf(-2*M_PI*f_c / f_s)) * Eigen::Vector3f::Ones();
 

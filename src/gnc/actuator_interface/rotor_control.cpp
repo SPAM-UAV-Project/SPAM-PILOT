@@ -32,13 +32,13 @@ namespace gnc
             delay(10);
         }
 
-        xTaskCreate(allocatorTaskEntry, "Control Allocator Task", 8192, this, 4, &allocator_task_handle_);
+        xTaskCreate(allocatorTaskEntry, "Control Allocator Task", 8192, this, 3, &allocator_task_handle_);
     
         // create timer
         Serial.println("[Rotor Controller]: Setting up rotor control timer...");
         rotor_control_timer_ = timerBegin(1000000); // 1 MHz timer
         timerAttachInterrupt(rotor_control_timer_, &onRotorControlTimerEntry);
-        timerAlarm(rotor_control_timer_, 500, true, 0); // 2000 Hz alarm, auto-reload
+        timerAlarm(rotor_control_timer_, 1000, true, 0); // 1000 Hz alarm, auto-reload
         Serial.println("[Rotor Controller]: Rotor control initialized.");
     }
 
@@ -51,7 +51,7 @@ namespace gnc
         float motor1_output = 0.0f;
         float motor2_output = 0.0f;
         float arming_throttle = 0.10f;
-        float max_blade_angle = 0.30f; // radians
+        float max_blade_angle = 0.50f; // virtual angle
         long start_time = millis();
 
         // sysid vars
@@ -60,8 +60,8 @@ namespace gnc
         float thrust_coeff_top = 10.9837;
         float thrust_coeff_bot = 9.3460;    
         float top_motor_arm = 0.18f; // meters    
-        float amp_cut_in = 0.16f;
-        float phase_lag = M_PI / 6.0f; // 30 degrees phase lag
+        float amp_cut_in = 0.20f;
+        float phase_lag = 30 * M_PI / 180.0f; // 90 degrees phase lag
 
         Eigen::Vector4f motor_forces = Eigen::Vector4f::Zero(); // f1x, f1y, f1z, f2z
         Eigen::Vector4f body_commands = Eigen::Vector4f::Zero(); // thrust, torque_x, torque_y, torque_z
@@ -93,8 +93,8 @@ namespace gnc
                 // map to motor forces
                 motor_forces = allocation_matrix * body_commands;
                 // convert to bx, by, u_top, u_bot
-                blade_xy.x() = -motor_forces(0) / (motor_forces(3) + 1e-6f); // avoid div by zero
-                blade_xy.y() = -motor_forces(1) / (motor_forces(3) + 1e-6f); // avoid div by zero
+                blade_xy.y() = motor_forces(0) / (motor_forces(3) + 1e-6f); // avoid div by zero
+                blade_xy.x() = motor_forces(1) / (motor_forces(3) + 1e-6f); // avoid div by zero
                 // u = sqrt(thrust / k)
                 u_motor_sp(0) = sqrt(std::max(0.0f, motor_forces(3) / thrust_coeff_top));
                 u_motor_sp(1) = sqrt(std::max(0.0f, motor_forces(3) / thrust_coeff_bot));
