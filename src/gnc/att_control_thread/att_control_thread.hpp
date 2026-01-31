@@ -63,6 +63,7 @@ namespace gnc {
         float dt_ms_ = 4.0f; // 250 Hz
         Eigen::Vector3f rate_setpoint_;
         AttitudeController att_controller_;
+        float max_manual_throttle_force = -20.0f; // Newtons
     };
 
 }

@@ -1,4 +1,5 @@
 #include "rotor_control.hpp"
+#include "sensors/encoder/encoder.hpp"  // for atomic encoder angle
 
 // logic as described in "Flight Performance of a Swashplateless Micro Air Vehicle" by James Paulos and Mark Yim
 // https://ieeexplore.ieee.org/document/7139936
@@ -32,13 +33,13 @@ namespace gnc
             delay(10);
         }
 
-        xTaskCreate(allocatorTaskEntry, "Control Allocator Task", 8192, this, 3, &allocator_task_handle_);
+        xTaskCreatePinnedToCore(allocatorTaskEntry, "Control Allocator Task", 8192, this, 3, &allocator_task_handle_, 1);
     
         // create timer
         Serial.println("[Rotor Controller]: Setting up rotor control timer...");
         rotor_control_timer_ = timerBegin(1000000); // 1 MHz timer
         timerAttachInterrupt(rotor_control_timer_, &onRotorControlTimerEntry);
-        timerAlarm(rotor_control_timer_, 1000, true, 0); // 1000 Hz alarm, auto-reload
+        timerAlarm(rotor_control_timer_, 1000, true, 0); // 1333 Hz alarm, auto-reload
         Serial.println("[Rotor Controller]: Rotor control initialized.");
     }
 
@@ -55,12 +56,12 @@ namespace gnc
         long start_time = millis();
 
         // sysid vars
-        float torque_coeff_top = 0.2051;
-        float torque_coeff_bot = 0.1455;
+        float torque_coeff_top = 0.0187;
+        float torque_coeff_bot = 0.0155;
         float thrust_coeff_top = 10.9837;
         float thrust_coeff_bot = 9.3460;    
         float top_motor_arm = 0.18f; // meters    
-        float amp_cut_in = 0.20f;
+        float amp_cut_in = 0.22f;
         float phase_lag = 30 * M_PI / 180.0f; // 90 degrees phase lag
 
         Eigen::Vector4f motor_forces = Eigen::Vector4f::Zero(); // f1x, f1y, f1z, f2z
@@ -82,7 +83,6 @@ namespace gnc
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
             // receive data
-            encoder_sub_.pull_if_new(encoder_msg_);
             thrust_sp_sub_.pull_if_new(thrust_sp_msg_);
             vehicle_state_sub_.pull_if_new(vehicle_state_);
 
@@ -92,12 +92,15 @@ namespace gnc
                 body_commands << thrust_sp_msg_.setpoint, torque_sp_msg_.setpoint.x(), torque_sp_msg_.setpoint.y(), torque_sp_msg_.setpoint.z();
                 // map to motor forces
                 motor_forces = allocation_matrix * body_commands;
-                // convert to bx, by, u_top, u_bot
-                blade_xy.y() = motor_forces(0) / (motor_forces(3) + 1e-6f); // avoid div by zero
-                blade_xy.x() = motor_forces(1) / (motor_forces(3) + 1e-6f); // avoid div by zero
+                
+                
+                // convert to bx, by using top motor force only
+                blade_xy.y() = motor_forces(0) / (motor_forces(2) + 1e-6f); // f1x / f1z  = B_y
+                blade_xy.x() = motor_forces(1) / (motor_forces(2) + 1e-6f); // f1y / f1z = B_x
+                
                 // u = sqrt(thrust / k)
-                u_motor_sp(0) = sqrt(std::max(0.0f, motor_forces(3) / thrust_coeff_top));
-                u_motor_sp(1) = sqrt(std::max(0.0f, motor_forces(3) / thrust_coeff_bot));
+                u_motor_sp(0) = sqrt(std::max(0.0f, motor_forces(2) / thrust_coeff_top));  // top motor
+                u_motor_sp(1) = sqrt(std::max(0.0f, motor_forces(3) / thrust_coeff_bot));  // bottom motor
 
                 // for swashplateless rotor control, we need to find an amplitude and a phase lag
                 amplitude = amp_cut_in + sqrt(SQ(blade_xy(0)) + SQ(blade_xy(1)));
@@ -110,29 +113,26 @@ namespace gnc
                     motor_forces_pub_.push(motor_forces_msg_);
                     start_time = millis();
                 }
-            } else {
-                // controllers not active, send 0 throttle
-                u_motor_sp(0) = 0.0f;
-                u_motor_sp(1) = 0.0f;
-                amplitude = 0.0f;
-                phase = 0.0f;
             }
 
             // convert to an oscillatory throttle response
-            motor1_output = u_motor_sp(0) + amplitude * cos(encoder_msg_.angle_rad - phase - phase_lag);
+            // we use an atomic variable to avoid jitter from the pub/sub system
+            float current_encoder_angle = sensors::encoder::atomic_enc_angle_rad.load(std::memory_order_relaxed);
+            
+            motor1_output = u_motor_sp(0) + amplitude * cos(current_encoder_angle - phase - phase_lag);
+            // motor1_output = u_motor_sp(0);
             // motor 2 just controls yaw and thrust
             motor2_output = u_motor_sp(1);
 
-            // constrain from arming throttle to 1.0
+            // constrain from arming throttle to 1.0 (should rarely clip now)
             motor1_output = std::max(arming_throttle, std::min(1.0f, motor1_output));
             motor2_output = std::max(arming_throttle, std::min(1.0f, motor2_output));
 
             // disarm if state not explicitly ARMED or no recent state update
             bool is_armed = (vehicle_state_.system_state == SystemState::ARMED ||
                             vehicle_state_.system_state == SystemState::ARMED_FLYING);
-            bool state_stale = (micros() - vehicle_state_.timestamp) > 1000000; // 1 second timeout
             
-            if (!is_armed || state_stale) {
+            if (!is_armed) {
                 // Disarmed or stale state - force zero throttle
                 motor1_output = 0.0f;
                 motor2_output = 0.0f;

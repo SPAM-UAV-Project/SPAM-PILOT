@@ -14,6 +14,9 @@
 
 namespace sensors::encoder
 {
+    // Atomic encoder angle for direct access from rotor control (no pub/sub jitter)
+    inline std::atomic<float> atomic_enc_angle_rad;
+    
     void initEncoder();
     void encoderTask(void *pvParameters);
     void encoderLoggerTask(void *pvParameters);

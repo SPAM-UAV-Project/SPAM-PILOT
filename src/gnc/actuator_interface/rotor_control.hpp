@@ -48,7 +48,6 @@ namespace gnc {
         DShotRMT motor2_ = DShotRMT(MOTOR2_PIN, DSHOT300); // Placeholder for second motor
         
         // Pubs and subs
-        Topic<EncoderMsg>::Subscriber encoder_sub_;
         Topic<ThrustSetpointMsg>::Subscriber thrust_sp_sub_;
         Topic<TorqueSetpointMsg>::Subscriber torque_sp_sub_;
         Topic<VehicleStateMsg>::Subscriber vehicle_state_sub_;
@@ -58,7 +57,6 @@ namespace gnc {
         ThrustSetpointMsg thrust_sp_msg_;
         TorqueSetpointMsg torque_sp_msg_;
         VehicleStateMsg vehicle_state_;
-        EncoderMsg encoder_msg_;
         MotorForcesMsg motor_forces_msg_;
         
 

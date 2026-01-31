@@ -5,7 +5,7 @@ namespace flight {
 StateManager::StateManager() {}
 
 void StateManager::init() {
-    xTaskCreate(stateManagerTaskEntry, "StateManagerTask", 8192, this, 3, nullptr);
+    xTaskCreate(stateManagerTaskEntry, "StateManagerTask", 8192, this, 2, nullptr);
     Serial.println("[StateManager] State Manager task started.");
 }
 
@@ -53,7 +53,7 @@ void StateManager::processRcCommands()
         }
     }
 
-    // if switch is low at least once after boot, we can allow arming (to prevent startup arming)
+    // if switch is low at least once after boot, we can allow arming (to prevent startup arming) this is not working right now, probably will implement if low for at least 1 second
     if (!arm_requested) {
         armable_ = true;
     }
@@ -72,8 +72,6 @@ void StateManager::stateManagerTask() {
         vehicle_state_msg_.system_state = cur_state_;
         vehicle_state_msg_.flight_mode = cur_flight_mode_;
         vehicle_state_pub_.push(vehicle_state_msg_);
-
-        processRcCommands();
         
         switch (cur_state_)
         {
@@ -118,6 +116,7 @@ void StateManager::stateManagerTask() {
             break;
         }
 
+        processRcCommands();
 
         vTaskDelayUntil(&last_wake_time, pdMS_TO_TICKS(20)); // 50 Hz
     }

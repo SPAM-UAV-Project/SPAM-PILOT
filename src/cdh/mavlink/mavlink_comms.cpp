@@ -21,8 +21,8 @@ void MavlinkComms::init() {
         if (transports_[i]) transports_[i]->begin();
     }
 
-    xTaskCreate(rxTaskEntry, "MavRxTask", 4096, this, 2, &rxTaskHandle);
-    xTaskCreate(txTaskEntry, "MavTxTask", 8192, this, 2, &txTaskHandle);
+    xTaskCreate(rxTaskEntry, "MavRxTask", 4096, this, 1, &rxTaskHandle);
+    xTaskCreate(txTaskEntry, "MavTxTask", 8192, this, 1, &txTaskHandle);
     
     Serial.println("[MavlinkComms] Tasks started");
 }

@@ -24,7 +24,7 @@ namespace gnc {
             "Attitude Control Task",
             4096,
             this,
-            3,
+            2,
             nullptr
         );
     }
@@ -63,7 +63,7 @@ namespace gnc {
                 att_setpoint_debug_pub_.push(att_setpoint_msg_);
 
                 // thrust setpoint from rc (0 to 1 mapped to 0 to 10 N)
-                thrust_setpoint_msg_.setpoint = -10.0f * rc_command_msg_.throttle; // map directly for now (adjust expo in rc controller)
+                thrust_setpoint_msg_.setpoint = max_manual_throttle_force * rc_command_msg_.throttle; // map directly for now (adjust expo in rc controller)
                 thrust_setpoint_pub_.push(thrust_setpoint_msg_);
                 
             case FlightMode::ALT_HOLD: // subs: rc_cmd | pubs: att sp

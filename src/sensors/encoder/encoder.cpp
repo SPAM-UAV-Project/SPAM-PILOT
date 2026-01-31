@@ -59,7 +59,7 @@ namespace sensors::encoder
         }
         
         // start freertos tasks
-        xTaskCreate(encoderTask, "EncoderTask", 4096, NULL, 3, &encoderTaskHandle);
+        xTaskCreatePinnedToCore(encoderTask, "EncoderTask", 4096, NULL, 3, &encoderTaskHandle, 0);
         delay(100);
 
         // create timer to trigger tasks
@@ -99,6 +99,9 @@ namespace sensors::encoder
 
             // read angle
             float angle_rad = magEnc.readRawAngle() * AS5600_RAW_TO_RAD;
+            
+            // store in atomic for low jitter access
+            atomic_enc_angle_rad.store(angle_rad, std::memory_order_relaxed);
 
             // compute angular velocity (don't really need at this stage)
             // current_time = micros();

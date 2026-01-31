@@ -16,7 +16,7 @@ namespace gnc {
             "Rate Control Task",
             4096,
             this,
-            4,
+            2,
             nullptr
         );
     }
