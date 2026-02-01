@@ -8,16 +8,18 @@
 
 namespace gnc {
 
-void ESKF::fuseGravity(const Eigen::Vector3f& accelMeas, const Matrix3f& measCov)
+void ESKF::fuseGravity(const Eigen::Vector3f& accel_meas, const Eigen::Vector3f& accel_meas_filtered, const Eigen::Matrix3f& measCov)
 {
     Eigen::Quaternionf current_quat(x_.segment<4>(QUAT_ID));
-    Eigen::Vector3f accel_corrected = (accelMeas - x_.segment<3>(AB_ID));
+    Eigen::Vector3f accel_corrected = (accel_meas - x_.segment<3>(AB_ID));
 
-    // if accel measurement is too small or too large, skip aiding (vehicle is accelerating)
-    if (accel_corrected.squaredNorm() < SQ(GRAVITY * 0.9f) || accel_corrected.squaredNorm() > SQ(GRAVITY * 1.1f)) {
+    // if filtered accel measurement is too small or too large, skip aiding (vehicle is accelerating)
+    // filter here since accel data is probably way too noisy for this application
+    if (accel_meas_filtered.squaredNorm() < SQ(GRAVITY * 0.9f) || accel_meas_filtered.squaredNorm() > SQ(GRAVITY * 1.1f)) {
         return;
     }
 
+    // normalize measurement to unit vector since we only care about direction
     accel_corrected.normalize();
 
     // get innovation

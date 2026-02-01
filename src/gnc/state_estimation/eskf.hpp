@@ -53,7 +53,7 @@ public:
     void predictStates(const Vector3f& accelMeas, const Vector3f& gyroMeas, float dt);
 
     void fuseMag(const Eigen::Vector3f& magMeas, const Matrix3f& magMeasCov);
-    void fuseGravity(const Eigen::Vector3f& accelMeas, const Matrix3f& measCov);
+    void fuseGravity(const Eigen::Vector3f& accel_meas, const Eigen::Vector3f& accel_meas_filtered, const Eigen::Matrix3f& measCov);
 
     Eigen::VectorXf getStateVariable(int id, int length) {
         return x_.segment(id, length);

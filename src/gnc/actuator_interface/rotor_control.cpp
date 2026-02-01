@@ -109,7 +109,8 @@ namespace gnc
 
                 // send to motor forces message at 100 hz just for debugging
                 if (millis() - start_time >= 10) {
-                    motor_forces_msg_.setpoint = motor_forces;
+                    motor_forces_msg_.force_setpoint = motor_forces;
+                    motor_forces_msg_.actuator_setpoints << blade_xy.x(), blade_xy.y(), u_motor_sp(0), u_motor_sp(1);
                     motor_forces_pub_.push(motor_forces_msg_);
                     start_time = millis();
                 }

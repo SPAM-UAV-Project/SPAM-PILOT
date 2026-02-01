@@ -128,7 +128,7 @@ void StateEstimator::stateEstimatorTask(void *pvParameters)
                                     dt_);
 
             // fuse gravity 
-            eskf_.fuseGravity(imu_gyro_accel_msg_.accel, Eigen::Matrix3f(accel_noise_var_ * I_3));
+            eskf_.fuseGravity(imu_gyro_accel_msg_.accel, imu_gyro_accel_msg_.accel_filtered, Eigen::Matrix3f(accel_noise_var_ * I_3));
         }
 
         // if recieved mag data, update the filter
