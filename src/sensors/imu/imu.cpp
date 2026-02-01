@@ -9,6 +9,7 @@
 #include "pin_defs.hpp"
 #include "msgs/ImuHighRateMsg.hpp"
 #include "msgs/ImuMagMsg.hpp"
+#include "filter/butter_lp.hpp"
 
 namespace sensors::imu
 {
@@ -84,8 +85,8 @@ namespace sensors::imu
         // start interrupts
         pinMode(PIN_IMU_INT, INPUT);
         attachInterrupt(digitalPinToInterrupt(PIN_IMU_INT), imuISR, RISING);
-
     }
+
 
     void IRAM_ATTR imuISR()
     {
@@ -100,10 +101,16 @@ namespace sensors::imu
         ImuHighRateMsg imu_msg;
 
         // low pass filter
-        Eigen::Vector3f filtered_gyro = Eigen::Vector3f::Zero();
-        float f_c = 25.0f; // cutoff freq
         float f_s = 1000.0f; // sample freq
-        Eigen::Vector3f alpha_lp = (1- expf(-2*M_PI*f_c / f_s)) * Eigen::Vector3f::Ones();
+
+        Eigen::Vector3f filtered_gyro = Eigen::Vector3f::Zero();
+        Eigen::Vector3f filtered_accel = Eigen::Vector3f::Zero();
+        float gyro_f_c = 30.0f;
+        float accel_f_c = 30.0f;
+
+        // filter objects
+        ButterLowPassFilt gyro_lp_filter_{gyro_f_c, f_s};
+        ButterLowPassFilt accel_lp_filter_{accel_f_c, f_s};
 
         while (1){
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
@@ -125,8 +132,10 @@ namespace sensors::imu
             imu_msg.gyro = IMU_TO_BODY_ROT * IMU_TO_FRD_ROT * imu_msg.gyro;
             imu_msg.accel = IMU_TO_BODY_ROT * IMU_TO_FRD_ROT * imu_msg.accel;
 
-            filtered_gyro = alpha_lp.asDiagonal() * imu_msg.gyro + (Eigen::Vector3f::Ones() - alpha_lp).asDiagonal() * filtered_gyro;
-            imu_msg.gyro_filtered = filtered_gyro;  
+            // filter imu and gyro with a second order butterworth filter
+            gyro_lp_filter_.apply3d(imu_msg.gyro.data(), imu_msg.gyro_filtered.data());
+            accel_lp_filter_.apply3d(imu_msg.accel.data(), imu_msg.accel_filtered.data());
+
 
             imu_pub.push(imu_msg);            
         }

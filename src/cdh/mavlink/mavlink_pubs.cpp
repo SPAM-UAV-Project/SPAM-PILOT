@@ -166,11 +166,15 @@ void MavlinkComms::publishEncoderAngle() {
 
 void MavlinkComms::publishMotorForces() {
     mavlink_message_t msg;
-    float data[4] = {
-        motor_forces_.setpoint(0),
-        motor_forces_.setpoint(1),
-        motor_forces_.setpoint(2),
-        motor_forces_.setpoint(3)
+    float data[8] = {
+        motor_forces_.force_setpoint(0),
+        motor_forces_.force_setpoint(1),
+        motor_forces_.force_setpoint(2),
+        motor_forces_.force_setpoint(3),
+        motor_forces_.actuator_setpoints(0),
+        motor_forces_.actuator_setpoints(1),
+        motor_forces_.actuator_setpoints(2),
+        motor_forces_.actuator_setpoints(3)
     };
     mavlink_msg_debug_float_array_pack(sys_id_, comp_id_, &msg,
         micros(),        // time_usec (microseconds)
