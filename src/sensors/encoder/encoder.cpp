@@ -59,7 +59,7 @@ namespace sensors::encoder
         }
         
         // start freertos tasks
-        xTaskCreatePinnedToCore(encoderTask, "EncoderTask", 4096, NULL, 3, &encoderTaskHandle, 0);
+        xTaskCreatePinnedToCore(encoderTask, "EncoderTask", 4096, NULL, 4, &encoderTaskHandle, 0);
         delay(100);
 
         // create timer to trigger tasks

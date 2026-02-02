@@ -11,6 +11,7 @@
 #include "cdh/mavlink/mavlink_comms.hpp"
 #include "cdh/mavlink/transport/usb_transport.hpp"
 #include "cdh/mavlink/transport/wifi_transport.hpp"
+#include "cdh/logger/sd_logger.hpp"
 
 // msgs and srvs
 #include "msgs/VehicleStateMsg.hpp"
@@ -39,6 +40,7 @@ private:
     // classes
     gnc::StateEstimator state_estimator_;
     cdh::RadioController radio_controller_;
+    cdh::SdLogger sd_logger_;
     gnc::AttControlThread att_control_thread_;
     gnc::RateControlThread rate_control_thread_;
     gnc::ControlAllocator control_allocator_;

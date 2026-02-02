@@ -33,7 +33,7 @@ namespace gnc
             delay(10);
         }
 
-        xTaskCreatePinnedToCore(allocatorTaskEntry, "Control Allocator Task", 8192, this, 3, &allocator_task_handle_, 1);
+        xTaskCreatePinnedToCore(allocatorTaskEntry, "Control Allocator Task", 8192, this, 4, &allocator_task_handle_, 1);
     
         // create timer
         Serial.println("[Rotor Controller]: Setting up rotor control timer...");
@@ -61,7 +61,7 @@ namespace gnc
         float thrust_coeff_top = 10.9837;
         float thrust_coeff_bot = 9.3460;    
         float top_motor_arm = 0.18f; // meters    
-        float amp_cut_in = 0.22f;
+        float amp_cut_in = 0.20f;
         float phase_lag = 30 * M_PI / 180.0f; // 90 degrees phase lag
 
         Eigen::Vector4f motor_forces = Eigen::Vector4f::Zero(); // f1x, f1y, f1z, f2z
@@ -109,6 +109,7 @@ namespace gnc
 
                 // send to motor forces message at 100 hz just for debugging
                 if (millis() - start_time >= 10) {
+                    motor_forces_msg_.timestamp = micros();
                     motor_forces_msg_.force_setpoint = motor_forces;
                     motor_forces_msg_.actuator_setpoints << blade_xy.x(), blade_xy.y(), u_motor_sp(0), u_motor_sp(1);
                     motor_forces_pub_.push(motor_forces_msg_);

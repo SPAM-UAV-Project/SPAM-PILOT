@@ -14,6 +14,12 @@
 #define MOTOR1_PIN 48
 #define MOTOR2_PIN 47
 
+// SD Card
+#define PIN_SD_CS    1
+#define PIN_SD_SCK   2
+#define PIN_SD_MOSI  42
+#define PIN_SD_MISO  41
+
 
 
 #endif // PIN_DEFS_HPP
