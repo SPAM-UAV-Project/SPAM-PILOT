@@ -1,0 +1,377 @@
+#include "sd_logger.hpp"
+
+namespace cdh {
+
+// ============================================================================
+// Initialization
+// ============================================================================
+
+bool SdLogger::init() {
+    gpio_reset_pin((static_cast<gpio_num_t>(PIN_SD_CS)));
+    gpio_reset_pin((static_cast<gpio_num_t>(PIN_SD_SCK)));
+    gpio_reset_pin((static_cast<gpio_num_t>(PIN_SD_MOSI)));
+    gpio_reset_pin((static_cast<gpio_num_t>(PIN_SD_MISO)));
+    SPI.begin(PIN_SD_SCK, PIN_SD_MISO, PIN_SD_MOSI, PIN_SD_CS);
+    
+    if (!SD.begin(PIN_SD_CS, SPI, SD_SPI_FREQ)) {
+        Serial.println("[SdLogger] SD card init failed!");
+        return false;
+    }
+    
+    sd_initialized_ = true;
+    current_file_num_ = findNextFileNumber();
+    Serial.println("[SdLogger] SD initialized.");
+    
+    // Start logger task (high priority for consistent 500Hz polling)
+    xTaskCreate(loggerTaskEntry, "SdLogger", 4096, this, 3, &logger_task_handle_);
+    
+    // Start writer task (low priority - just drains buffer)
+    xTaskCreate(writerTaskEntry, "SdWriter", 4096, this, 1, &writer_task_handle_);
+    
+    Serial.println("[SdLogger] Tasks started.");
+    return true;
+}
+
+uint16_t SdLogger::findNextFileNumber() {
+    uint16_t num = 1;
+    char filename[20];
+    
+    while (num < 9999) {
+        snprintf(filename, sizeof(filename), "/LOG_%04u.bin", num);
+        if (!SD.exists(filename)) break;
+        num++;
+    }
+    return num;
+}
+
+// ============================================================================
+// Session Control
+// ============================================================================
+
+bool SdLogger::startSession() {
+    if (!sd_initialized_ || logging_active_.load(std::memory_order_acquire)) {
+        return false;
+    }
+    
+    char filename[20];
+    snprintf(filename, sizeof(filename), "/LOG_%04u.bin", current_file_num_);
+    
+    log_file_ = SD.open(filename, FILE_WRITE);
+    if (!log_file_) {
+        Serial.printf("[SdLogger] Failed to create: %s\n", filename);
+        return false;
+    }
+    
+    // Write file header
+    session_start_us_ = micros();
+    LogFileHeader header = {
+        .magic = 0x4D415053,  // "SPAM"
+        .version = 1,
+        .header_size = sizeof(LogFileHeader),
+        .start_time_us = session_start_us_
+    };
+    log_file_.write((uint8_t*)&header, sizeof(header));
+    log_file_.flush();
+    
+    // Reset buffer
+    head_.store(0, std::memory_order_release);
+    tail_.store(0, std::memory_order_release);
+    drop_count_.store(0, std::memory_order_release);
+    
+    logging_active_.store(true, std::memory_order_release);
+    Serial.printf("[SdLogger] Started: %s\n", filename);
+    current_file_num_++;
+    
+    return true;
+}
+
+void SdLogger::stopSession() {
+    if (!logging_active_.load(std::memory_order_acquire)) return;
+    
+    // Stop logging new data
+    logging_active_.store(false, std::memory_order_release);
+    
+    // drain buffer
+    drainBuffer();
+    
+    // Close file
+    if (log_file_) {
+        log_file_.flush();
+        log_file_.close();
+    }
+    
+    Serial.printf("[SdLogger] Stopped. Drops: %lu\n", drop_count_.load());
+}
+
+// ============================================================================
+// Ring Buffer
+// ============================================================================
+
+size_t SdLogger::availableForWrite() const {
+    size_t h = head_.load(std::memory_order_acquire);
+    size_t t = tail_.load(std::memory_order_acquire);
+    return (h >= t) ? (SD_BUFFER_SIZE - (h - t) - 1) : (t - h - 1);
+}
+
+size_t SdLogger::availableForRead() const {
+    size_t h = head_.load(std::memory_order_acquire);
+    size_t t = tail_.load(std::memory_order_acquire);
+    return (h >= t) ? (h - t) : (SD_BUFFER_SIZE - t + h);
+}
+
+size_t SdLogger::getBufferUsage() const {
+    return availableForRead();
+}
+
+bool SdLogger::writeToBuffer(const void* data, size_t len) {
+    if (len > availableForWrite()) {
+        drop_count_.fetch_add(1, std::memory_order_relaxed);
+        return false;
+    }
+    
+    const uint8_t* src = (const uint8_t*)data;
+    size_t h = head_.load(std::memory_order_relaxed);
+    
+    for (size_t i = 0; i < len; i++) {
+        buffer_[h] = src[i];
+        h = (h + 1) % SD_BUFFER_SIZE;
+    }
+    
+    head_.store(h, std::memory_order_release);
+    return true;
+}
+
+bool SdLogger::writeLogEntry(const LogHeader& hdr, const void* payload, size_t payload_len) {
+    // Check space for BOTH header and payload atomically
+    size_t total_len = sizeof(LogHeader) + payload_len;
+    if (total_len > availableForWrite()) {
+        drop_count_.fetch_add(1, std::memory_order_relaxed);
+        return false;
+    }
+    
+    // Write header + payload as single contiguous operation
+    size_t h = head_.load(std::memory_order_relaxed);
+    
+    // Write header
+    const uint8_t* hdr_bytes = reinterpret_cast<const uint8_t*>(&hdr);
+    for (size_t i = 0; i < sizeof(LogHeader); i++) {
+        buffer_[h] = hdr_bytes[i];
+        h = (h + 1) % SD_BUFFER_SIZE;
+    }
+    
+    // Write payload
+    const uint8_t* payload_bytes = reinterpret_cast<const uint8_t*>(payload);
+    for (size_t i = 0; i < payload_len; i++) {
+        buffer_[h] = payload_bytes[i];
+        h = (h + 1) % SD_BUFFER_SIZE;
+    }
+    
+    // Single atomic update - writer task sees complete message or nothing
+    head_.store(h, std::memory_order_release);
+    return true;
+}
+
+void SdLogger::drainBuffer() {
+    if (!log_file_) return;
+    
+    size_t readable = availableForRead();
+    if (readable == 0) return;
+    
+    constexpr size_t CHUNK_SIZE = 512;
+    uint8_t chunk[CHUNK_SIZE];
+    
+    size_t t = tail_.load(std::memory_order_relaxed);
+    size_t written = 0;
+    
+    while (written < readable) {
+        size_t to_write = min(CHUNK_SIZE, readable - written);
+        
+        for (size_t i = 0; i < to_write; i++) {
+            chunk[i] = buffer_[t];
+            t = (t + 1) % SD_BUFFER_SIZE;
+        }
+        
+        log_file_.write(chunk, to_write);
+        written += to_write;
+        tail_.store(t, std::memory_order_release);
+    }
+    
+    log_file_.flush();
+}
+
+// ============================================================================
+// Logger Task (500Hz) - Polls subscribers and writes to buffer
+// ============================================================================
+
+void SdLogger::loggerTask() {
+    TickType_t last_wake = xTaskGetTickCount();
+    
+    while (true) {
+        if (logging_active_.load(std::memory_order_acquire)) {
+            // Poll all subscribers and log new data
+            logImu();
+            logEkf();
+            logMotorForces();
+            logAttSp();
+            logRateSp();
+            logTorqueSp();
+        }
+        
+        vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(SD_LOG_PERIOD_MS));  // 500Hz
+    }
+}
+
+// ============================================================================
+// Writer Task (20Hz) - Drains buffer to SD card
+// ============================================================================
+
+void SdLogger::writerTask() {
+    TickType_t last_wake = xTaskGetTickCount();
+    
+    while (true) {
+        // Only write when logging and threshold reached
+        if (logging_active_.load(std::memory_order_acquire) &&
+            availableForRead() >= SD_FLUSH_THRESHOLD) {
+            drainBuffer();
+        }
+        
+        vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(SD_WRITE_PERIOD_MS));
+    }
+}
+
+// ============================================================================
+// Log Helpers - Convert messages to binary and write to buffer
+// ============================================================================
+
+void SdLogger::logImu() {
+    if (!imu_sub_.pull_if_new(imu_msg_)) return;
+    
+    LogHeader hdr = { 
+        .msg_type = static_cast<uint8_t>(LogMsgType::IMU),
+        .payload_size = sizeof(LogImu),
+        .reserved = 0
+    };
+    
+    LogImu payload;
+    payload.timestamp = imu_msg_.timestamp;
+    payload.accel[0] = imu_msg_.accel.x();
+    payload.accel[1] = imu_msg_.accel.y();
+    payload.accel[2] = imu_msg_.accel.z();
+    payload.gyro[0] = imu_msg_.gyro.x();
+    payload.gyro[1] = imu_msg_.gyro.y();
+    payload.gyro[2] = imu_msg_.gyro.z();
+    payload.accel_filtered[0] = imu_msg_.accel_filtered.x();
+    payload.accel_filtered[1] = imu_msg_.accel_filtered.y();
+    payload.accel_filtered[2] = imu_msg_.accel_filtered.z();
+    payload.gyro_filtered[0] = imu_msg_.gyro_filtered.x();
+    payload.gyro_filtered[1] = imu_msg_.gyro_filtered.y();
+    payload.gyro_filtered[2] = imu_msg_.gyro_filtered.z();
+    
+    writeLogEntry(hdr, &payload, sizeof(payload));
+}
+
+void SdLogger::logEkf() {
+    if (!ekf_sub_.pull_if_new(ekf_msg_)) return;
+    
+    LogHeader hdr = {
+        .msg_type = static_cast<uint8_t>(LogMsgType::EKF),
+        .payload_size = sizeof(LogEkf),
+        .reserved = 0
+    };
+    
+    LogEkf payload;
+    payload.timestamp = ekf_msg_.timestamp;
+    payload.position[0] = ekf_msg_.position.x();
+    payload.position[1] = ekf_msg_.position.y();
+    payload.position[2] = ekf_msg_.position.z();
+    payload.velocity[0] = ekf_msg_.velocity.x();
+    payload.velocity[1] = ekf_msg_.velocity.y();
+    payload.velocity[2] = ekf_msg_.velocity.z();
+    payload.attitude[0] = ekf_msg_.attitude.w();
+    payload.attitude[1] = ekf_msg_.attitude.x();
+    payload.attitude[2] = ekf_msg_.attitude.y();
+    payload.attitude[3] = ekf_msg_.attitude.z();
+    
+    writeLogEntry(hdr, &payload, sizeof(payload));
+}
+
+void SdLogger::logMotorForces() {
+    if (!motor_sub_.pull_if_new(motor_msg_)) return;
+    
+    LogHeader hdr = {
+        .msg_type = static_cast<uint8_t>(LogMsgType::MOTOR_FORCES),
+        .payload_size = sizeof(LogMotorForces),
+        .reserved = 0
+    };
+    
+    LogMotorForces payload;
+    payload.timestamp = motor_msg_.timestamp;
+    payload.forces[0] = motor_msg_.force_setpoint.x();
+    payload.forces[1] = motor_msg_.force_setpoint.y();
+    payload.forces[2] = motor_msg_.force_setpoint.z();
+    payload.forces[3] = motor_msg_.force_setpoint.w();
+    payload.actuators[0] = motor_msg_.actuator_setpoints.x();
+    payload.actuators[1] = motor_msg_.actuator_setpoints.y();
+    payload.actuators[2] = motor_msg_.actuator_setpoints.z();
+    payload.actuators[3] = motor_msg_.actuator_setpoints.w();
+    
+    writeLogEntry(hdr, &payload, sizeof(payload));
+}
+
+void SdLogger::logAttSp() {
+    if (!att_sp_sub_.pull_if_new(att_sp_msg_)) return;
+    
+    LogHeader hdr = {
+        .msg_type = static_cast<uint8_t>(LogMsgType::ATT_SP),
+        .payload_size = sizeof(LogAttSp),
+        .reserved = 0
+    };
+    
+    LogAttSp payload;
+    payload.timestamp = att_sp_msg_.timestamp;
+    payload.q[0] = att_sp_msg_.q_sp.w();
+    payload.q[1] = att_sp_msg_.q_sp.x();
+    payload.q[2] = att_sp_msg_.q_sp.y();
+    payload.q[3] = att_sp_msg_.q_sp.z();
+    payload.yaw_ff = att_sp_msg_.yaw_sp_ff_rate;
+    
+    writeLogEntry(hdr, &payload, sizeof(payload));
+}
+
+void SdLogger::logRateSp() {
+    if (!rate_sp_sub_.pull_if_new(rate_sp_msg_)) return;
+    
+    LogHeader hdr = {
+        .msg_type = static_cast<uint8_t>(LogMsgType::RATE_SP),
+        .payload_size = sizeof(LogRateSp),
+        .reserved = 0
+    };
+    
+    LogRateSp payload;
+    payload.timestamp = rate_sp_msg_.timestamp;
+    payload.rate[0] = rate_sp_msg_.setpoint.x();
+    payload.rate[1] = rate_sp_msg_.setpoint.y();
+    payload.rate[2] = rate_sp_msg_.setpoint.z();
+    
+    writeLogEntry(hdr, &payload, sizeof(payload));
+}
+
+void SdLogger::logTorqueSp() {
+    if (!torque_sp_sub_.pull_if_new(torque_sp_msg_)) return;
+    
+    LogHeader hdr = {
+        .msg_type = static_cast<uint8_t>(LogMsgType::TORQUE_SP),
+        .payload_size = sizeof(LogTorqueSp),
+        .reserved = 0
+    };
+    
+    LogTorqueSp payload;
+    payload.timestamp = torque_sp_msg_.timestamp;
+    payload.torque[0] = torque_sp_msg_.setpoint.x();
+    payload.torque[1] = torque_sp_msg_.setpoint.y();
+    payload.torque[2] = torque_sp_msg_.setpoint.z();
+    
+    writeLogEntry(hdr, &payload, sizeof(payload));
+}
+
+} // namespace cdh

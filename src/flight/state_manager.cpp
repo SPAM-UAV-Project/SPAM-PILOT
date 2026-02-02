@@ -82,6 +82,9 @@ void StateManager::stateManagerTask() {
             // delay(200);  // Allow I2C bus 0 to stabilize
             state_estimator_.init();
             radio_controller_.init();
+            if (!sd_logger_.init()) {
+                Serial.println("[StateManager] Warning: SD Logger init failed!");
+            }
 
             // initialize controllers
             att_control_thread_.init();
@@ -99,18 +102,19 @@ void StateManager::stateManagerTask() {
             break;
         case SystemState::DISARMED:
             // wait for arming command to initialize any of the control loops for safety
-
+            sd_logger_.stopSession();
             break;
         case SystemState::ARMED:
             // might just switch to ARMED_FLYING directly , nothing much to do here/ maybe final checks?
             switchState(SystemState::ARMED_FLYING);
+            sd_logger_.startSession(); // start logger
             break;
         case SystemState::ARMED_FLYING:
             // only have stabilized mode for now (hold attittude to level if no pilot input)
-
             // land detector
             break;
         case SystemState::FAILSAFE:
+            sd_logger_.stopSession();
             break;
         default:
             break;
