@@ -59,7 +59,7 @@ namespace sensors::encoder
         }
         
         // start freertos tasks
-        xTaskCreatePinnedToCore(encoderTask, "EncoderTask", 4096, NULL, 4, &encoderTaskHandle, 0);
+        xTaskCreatePinnedToCore(encoderTask, "EncoderTask", 4096, NULL, 4, &encoderTaskHandle, 1);
         delay(100);
 
         // create timer to trigger tasks
@@ -117,6 +117,7 @@ namespace sensors::encoder
             // last_time = current_time;
 
             encoder_msg.angle_rad = angle_rad;
+            encoder_msg.timestamp = micros();
             encoder_pub.push(encoder_msg);
         }
     }    

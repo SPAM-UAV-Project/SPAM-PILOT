@@ -23,7 +23,7 @@ bool SdLogger::init() {
     Serial.println("[SdLogger] SD initialized.");
     
     // Start logger task (high priority for consistent 500Hz polling)
-    xTaskCreate(loggerTaskEntry, "SdLogger", 4096, this, 3, &logger_task_handle_);
+    xTaskCreate(loggerTaskEntry, "SdLogger", 4096, this, 2, &logger_task_handle_);
     
     // Start writer task (low priority - just drains buffer)
     xTaskCreate(writerTaskEntry, "SdWriter", 4096, this, 1, &writer_task_handle_);
@@ -215,6 +215,7 @@ void SdLogger::loggerTask() {
             logAttSp();
             logRateSp();
             logTorqueSp();
+            logEncoder();
         }
         
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(SD_LOG_PERIOD_MS));  // 500Hz
@@ -370,6 +371,23 @@ void SdLogger::logTorqueSp() {
     payload.torque[0] = torque_sp_msg_.setpoint.x();
     payload.torque[1] = torque_sp_msg_.setpoint.y();
     payload.torque[2] = torque_sp_msg_.setpoint.z();
+    
+    writeLogEntry(hdr, &payload, sizeof(payload));
+}
+
+void SdLogger::logEncoder() {
+    if (!encoder_sub_.pull_if_new(encoder_msg_)) return;
+    
+    LogHeader hdr = {
+        .msg_type = static_cast<uint8_t>(LogMsgType::ENCODER),
+        .payload_size = sizeof(LogEncoder),
+        .reserved = 0
+    };
+    
+    LogEncoder payload;
+    payload.timestamp = encoder_msg_.timestamp;
+    payload.angle_rad = encoder_msg_.angle_rad;
+    payload.angular_velocity_rad_s = encoder_msg_.angular_velocity_rad_s;
     
     writeLogEntry(hdr, &payload, sizeof(payload));
 }

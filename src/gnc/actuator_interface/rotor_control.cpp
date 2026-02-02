@@ -33,13 +33,13 @@ namespace gnc
             delay(10);
         }
 
-        xTaskCreatePinnedToCore(allocatorTaskEntry, "Control Allocator Task", 8192, this, 4, &allocator_task_handle_, 1);
+        xTaskCreate(allocatorTaskEntry, "Control Allocator Task", 8192, this, 3, &allocator_task_handle_);
     
         // create timer
         Serial.println("[Rotor Controller]: Setting up rotor control timer...");
         rotor_control_timer_ = timerBegin(1000000); // 1 MHz timer
         timerAttachInterrupt(rotor_control_timer_, &onRotorControlTimerEntry);
-        timerAlarm(rotor_control_timer_, 1000, true, 0); // 1333 Hz alarm, auto-reload
+        timerAlarm(rotor_control_timer_, 1000, true, 0); // 1000 Hz alarm, auto-reload
         Serial.println("[Rotor Controller]: Rotor control initialized.");
     }
 
@@ -53,15 +53,14 @@ namespace gnc
         float motor2_output = 0.0f;
         float arming_throttle = 0.10f;
         float max_blade_angle = 0.50f; // virtual angle
-        long start_time = millis();
 
         // sysid vars
-        float torque_coeff_top = 0.0187;
+        float torque_coeff_top = 0.0167; // 187
         float torque_coeff_bot = 0.0155;
         float thrust_coeff_top = 10.9837;
         float thrust_coeff_bot = 9.3460;    
         float top_motor_arm = 0.18f; // meters    
-        float amp_cut_in = 0.20f;
+        float amp_cut_in = 0.185f;
         float phase_lag = 30 * M_PI / 180.0f; // 90 degrees phase lag
 
         Eigen::Vector4f motor_forces = Eigen::Vector4f::Zero(); // f1x, f1y, f1z, f2z
@@ -93,28 +92,31 @@ namespace gnc
                 // map to motor forces
                 motor_forces = allocation_matrix * body_commands;
                 
-                
                 // convert to bx, by using top motor force only
-                blade_xy.y() = motor_forces(0) / (motor_forces(2) + 1e-6f); // f1x / f1z  = B_y
-                blade_xy.x() = motor_forces(1) / (motor_forces(2) + 1e-6f); // f1y / f1z = B_x
-                
+                // dont do anything if motor forces are low
+                if (motor_forces(2) > 1) { // 1 N threshold
+                    blade_xy.y() = -motor_forces(0) / (motor_forces(2) + 1e-6f); // f1x / f1z  = B_y
+                    blade_xy.x() = -motor_forces(1) / (motor_forces(2) + 1e-6f); // f1y / f1z = B_x
+
+                    // for swashplateless rotor control, we need to find an amplitude and a phase lag
+                    amplitude = amp_cut_in + sqrt(SQ(blade_xy(0)) + SQ(blade_xy(1)));
+                    amplitude = std::min(amplitude, max_blade_angle); // cap amplitude to avoid excessive commands / vibrations
+                    phase = atan2(blade_xy(1), blade_xy(0));
+                } else {
+                    blade_xy << 0.0f, 0.0f;
+                    amplitude = 0.0f;
+                    phase = 0.0f;
+                }
+
                 // u = sqrt(thrust / k)
                 u_motor_sp(0) = sqrt(std::max(0.0f, motor_forces(2) / thrust_coeff_top));  // top motor
                 u_motor_sp(1) = sqrt(std::max(0.0f, motor_forces(3) / thrust_coeff_bot));  // bottom motor
 
-                // for swashplateless rotor control, we need to find an amplitude and a phase lag
-                amplitude = amp_cut_in + sqrt(SQ(blade_xy(0)) + SQ(blade_xy(1)));
-                amplitude = std::min(amplitude, max_blade_angle); // cap amplitude to avoid excessive commands / vibrations
-                phase = atan2(blade_xy(1), blade_xy(0));
-
-                // send to motor forces message at 100 hz just for debugging
-                if (millis() - start_time >= 10) {
-                    motor_forces_msg_.timestamp = micros();
-                    motor_forces_msg_.force_setpoint = motor_forces;
-                    motor_forces_msg_.actuator_setpoints << blade_xy.x(), blade_xy.y(), u_motor_sp(0), u_motor_sp(1);
-                    motor_forces_pub_.push(motor_forces_msg_);
-                    start_time = millis();
-                }
+                // publish for logging
+                motor_forces_msg_.timestamp = micros();
+                motor_forces_msg_.force_setpoint = motor_forces;
+                motor_forces_msg_.actuator_setpoints << blade_xy.x(), blade_xy.y(), u_motor_sp(0), u_motor_sp(1);
+                motor_forces_pub_.push(motor_forces_msg_);
             }
 
             // convert to an oscillatory throttle response
@@ -130,7 +132,7 @@ namespace gnc
             motor1_output = std::max(arming_throttle, std::min(1.0f, motor1_output));
             motor2_output = std::max(arming_throttle, std::min(1.0f, motor2_output));
 
-            // disarm if state not explicitly ARMED or no recent state update
+            // disarm if state not explicitly ARMED
             bool is_armed = (vehicle_state_.system_state == SystemState::ARMED ||
                             vehicle_state_.system_state == SystemState::ARMED_FLYING);
             

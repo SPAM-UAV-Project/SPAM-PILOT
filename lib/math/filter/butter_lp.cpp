@@ -1,16 +1,30 @@
 #include "butter_lp.hpp"
 #include <math.h>
 
-ButterLowPassFilt::ButterLowPassFilt(float cutoff_freq, float sample_freq)
-    : cutoff_freq_(cutoff_freq), sample_freq_(sample_freq)
+ButterLowPassFilt::ButterLowPassFilt()
+    : b0_(0.0f), b1_(0.0f), b2_(0.0f),
+      a1_(0.0f), a2_(0.0f),
+      x_1{0.0f, 0.0f, 0.0f},
+      y_1{0.0f, 0.0f, 0.0f},
+      x_2{0.0f, 0.0f, 0.0f},
+      y_2{0.0f, 0.0f, 0.0f}
+{}
+
+void ButterLowPassFilt::setup(float cutoff_freq, float sample_freq)
 {
-    float K = tanf(M_PI * cutoff_freq / sample_freq);
-    float norm = 1.0f / (1.0f + sqrtf(2) * K + K * K);
-    b0_ = K*K * norm;
-    b1_ = 2.0f * b0_;
-    b2_ = b0_;
-    a1_ = 2.0f * (K*K - 1) * norm;
-    a2_ = (1.0f - sqrtf(2) * K + K*K) * norm;
+    double K = tan(M_PI * cutoff_freq / sample_freq);
+    double norm = 1.0 / (1.0 + sqrt(2) * K + K * K);
+    double b0_d = K*K * norm;
+    double b1_d = 2.0 * b0_d;
+    double b2_d = b0_d;
+    double a1_d = 2.0 * (K*K - 1) * norm;
+    double a2_d = (1.0 - sqrt(2) * K + K*K) * norm;
+
+    b0_ = (float)b0_d;
+    b1_ = (float)b1_d;
+    b2_ = (float)b2_d;
+    a1_ = (float)a1_d;
+    a2_ = (float)a2_d;
 }
 
 void ButterLowPassFilt::apply3d(const float input[3], float output[3])

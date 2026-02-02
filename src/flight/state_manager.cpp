@@ -92,7 +92,7 @@ void StateManager::stateManagerTask() {
             control_allocator_.initRotor();
 #ifdef MAVLINK_ENABLED
             // initialize mavlink
-            mavlink_comms_.registerTransport(&usb_transport_);
+            //mavlink_comms_.registerTransport(&usb_transport_);
 #ifdef WIFI_TRANSPORT
             mavlink_comms_.registerTransport(&wifi_transport_);
 #endif // WIFI_TRANSPORT

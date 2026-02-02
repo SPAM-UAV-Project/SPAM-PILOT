@@ -119,9 +119,9 @@ void MavlinkComms::publishImuHighRate() {
     mavlink_message_t msg;
     mavlink_msg_highres_imu_pack(sys_id_, comp_id_, &msg,
         imu_high_rate_.timestamp,
-        imu_high_rate_.accel(0) - ekf_states_.accel_bias(0),  // xacc
-        imu_high_rate_.accel(1) - ekf_states_.accel_bias(1),  // yacc
-        imu_high_rate_.accel(2) - ekf_states_.accel_bias(2),  // zacc
+        imu_high_rate_.accel_filtered(0) - ekf_states_.accel_bias(0),  // xacc
+        imu_high_rate_.accel_filtered(1) - ekf_states_.accel_bias(1),  // yacc
+        imu_high_rate_.accel_filtered(2) - ekf_states_.accel_bias(2),  // zacc
         imu_high_rate_.gyro_filtered(0) - ekf_states_.gyro_bias(0),  // xgyro
         imu_high_rate_.gyro_filtered(1) - ekf_states_.gyro_bias(1),  // ygyro
         imu_high_rate_.gyro_filtered(2) - ekf_states_.gyro_bias(2),  // zgyro

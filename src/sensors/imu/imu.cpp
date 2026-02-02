@@ -10,6 +10,7 @@
 #include "msgs/ImuHighRateMsg.hpp"
 #include "msgs/ImuMagMsg.hpp"
 #include "filter/butter_lp.hpp"
+#include "filter/notch.hpp"
 
 namespace sensors::imu
 {
@@ -67,7 +68,7 @@ namespace sensors::imu
         mpu.setI2CBypassEnabled(true); // enable direct access to mag via i2c
         mpu.setI2CMasterModeEnabled(false);
         mpu.setSleepEnabled(false);
-        xTaskCreate(imuTask, "IMU Task", 8192, NULL, 3, &imuTaskHandle);
+        xTaskCreatePinnedToCore(imuTask, "IMU Task", 8192, NULL, 2, &imuTaskHandle, 1);
 
         delay(100);
 
@@ -80,7 +81,7 @@ namespace sensors::imu
         mag.setMeasurementMode(HMC5883L_CONTINOUS); 
         mag.setDataRate(HMC5883L_DATARATE_30HZ);
         mag.setSamples(HMC5883L_SAMPLES_8); // oversampling
-        xTaskCreate(magTask, "Mag Task", 8192, NULL, 3, NULL);
+        xTaskCreatePinnedToCore(magTask, "Mag Task", 8192, NULL, 2, NULL, 1);
 
         // start interrupts
         pinMode(PIN_IMU_INT, INPUT);
@@ -100,17 +101,27 @@ namespace sensors::imu
         int16_t imu_raw[6] = {0};
         ImuHighRateMsg imu_msg;
 
-        // low pass filter
         float f_s = 1000.0f; // sample freq
 
-        Eigen::Vector3f filtered_gyro = Eigen::Vector3f::Zero();
-        Eigen::Vector3f filtered_accel = Eigen::Vector3f::Zero();
-        float gyro_f_c = 30.0f;
-        float accel_f_c = 30.0f;
+        // setup notch filter
+        Eigen::Vector3f notched_gyro = Eigen::Vector3f::Zero();
+        Eigen::Vector3f notched_accel = Eigen::Vector3f::Zero();
+        float gyro_notch_freq = 35.0f;
+        float gyro_notch_bw = 10.0f;
+        float accel_notch_freq = 35.0f;
+        float accel_notch_bw = 10.0f;
+        NotchFilt gyro_notch_filter_;
+        NotchFilt accel_notch_filter_;
+        gyro_notch_filter_.setup(gyro_notch_freq, gyro_notch_bw, f_s);
+        accel_notch_filter_.setup(accel_notch_freq, accel_notch_bw, f_s);
 
-        // filter objects
-        ButterLowPassFilt gyro_lp_filter_{gyro_f_c, f_s};
-        ButterLowPassFilt accel_lp_filter_{accel_f_c, f_s};
+        // setup low pass filter
+        float gyro_f_c = 35.0f;
+        float accel_f_c = 35.0f;
+        ButterLowPassFilt gyro_lp_filter_;
+        ButterLowPassFilt accel_lp_filter_;
+        gyro_lp_filter_.setup(gyro_f_c, f_s);
+        accel_lp_filter_.setup(accel_f_c, f_s);
 
         while (1){
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
@@ -132,10 +143,12 @@ namespace sensors::imu
             imu_msg.gyro = IMU_TO_BODY_ROT * IMU_TO_FRD_ROT * imu_msg.gyro;
             imu_msg.accel = IMU_TO_BODY_ROT * IMU_TO_FRD_ROT * imu_msg.accel;
 
-            // filter imu and gyro with a second order butterworth filter
-            gyro_lp_filter_.apply3d(imu_msg.gyro.data(), imu_msg.gyro_filtered.data());
-            accel_lp_filter_.apply3d(imu_msg.accel.data(), imu_msg.accel_filtered.data());
+            // filter accel and gyro with notch, then low pass
+            gyro_notch_filter_.apply3d(imu_msg.gyro.data(), notched_gyro.data());
+            accel_notch_filter_.apply3d(imu_msg.accel.data(), notched_accel.data());
 
+            gyro_lp_filter_.apply3d(notched_gyro.data(), imu_msg.gyro_filtered.data());
+            accel_lp_filter_.apply3d(notched_accel.data(), imu_msg.accel_filtered.data());
 
             imu_pub.push(imu_msg);            
         }

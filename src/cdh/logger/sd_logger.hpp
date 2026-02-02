@@ -15,6 +15,7 @@
 #include "msgs/AttitudeSetpointMsg.hpp"
 #include "msgs/RateSetpointMsg.hpp"
 #include "msgs/TorqueSetpointMsg.hpp"
+#include "msgs/EncoderMsg.hpp"
 
 namespace cdh {
 
@@ -39,7 +40,8 @@ enum class LogMsgType : uint8_t {
     MOTOR_FORCES = 2,
     ATT_SP = 3,
     RATE_SP = 4,
-    TORQUE_SP = 5
+    TORQUE_SP = 5,
+    ENCODER = 6
 };
 
 // Binary log entry header (4 bytes)
@@ -86,6 +88,12 @@ struct __attribute__((packed)) LogTorqueSp {
     uint64_t timestamp;
     float torque[3];
 };  // 20 bytes
+
+struct __attribute__((packed)) LogEncoder {
+    uint64_t timestamp;
+    float angle_rad;
+    float angular_velocity_rad_s;
+};  // 16 bytes
 
 // File header
 struct __attribute__((packed)) LogFileHeader {
@@ -167,6 +175,7 @@ private:
     Topic<AttitudeSetpointMsg>::Subscriber att_sp_sub_;
     Topic<RateSetpointMsg>::Subscriber rate_sp_sub_;
     Topic<TorqueSetpointMsg>::Subscriber torque_sp_sub_;
+    Topic<EncoderMsg>::Subscriber encoder_sub_;
 
     // Message buffers for subscribers
     ImuHighRateMsg imu_msg_;
@@ -175,6 +184,7 @@ private:
     AttitudeSetpointMsg att_sp_msg_;
     RateSetpointMsg rate_sp_msg_;
     TorqueSetpointMsg torque_sp_msg_;
+    EncoderMsg encoder_msg_;
 
     TaskHandle_t logger_task_handle_ = nullptr;
     TaskHandle_t writer_task_handle_ = nullptr;
@@ -205,6 +215,7 @@ private:
     void logAttSp();
     void logRateSp();
     void logTorqueSp();
+    void logEncoder();
 };
 
 } // namespace cdh
