@@ -36,8 +36,6 @@ private:
     PID_DOM pid_x_;
     PID_DOM pid_y_;
     PID_DOM pid_z_;
-
-    Eigen::Quaternionf error_quat_;
 };
 
 } // namespace gnc

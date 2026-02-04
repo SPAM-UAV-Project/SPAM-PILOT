@@ -14,17 +14,28 @@ namespace gnc {
     Eigen::Vector3f AttitudeController::run(Eigen::Quaternionf attitude_setpoint, Eigen::Quaternionf attitude_measurement)
     {
         // calculate the error quaternion, send the x,y,z components as setpoints with 0 measurement
-        error_quat_ = (attitude_measurement.conjugate() * attitude_setpoint).normalized();
+        Eigen::Quaternionf error_quat = (attitude_measurement.conjugate() * attitude_setpoint).normalized();
 
-        if (error_quat_.w() < 0.0f) {
-            error_quat_.coeffs() *= -1.0f;
+        // ensure shortest path
+        if (error_quat.w() < 0.0f) { 
+            error_quat.coeffs() *= -1.0f;
         }
+
+        // separate the tilt component and the twist component to ensure tilt control is maintained
+        float twist_norm_sq = error_quat.w() * error_quat.w() + error_quat.z() * error_quat.z();
+        Eigen::Quaternionf twist_quat;
+        if (twist_norm_sq > 1e-6f){
+            twist_quat = Eigen::Quaternionf(error_quat.w(), 0.0f, 0.0f, error_quat.z()).normalized();
+        } else {
+            twist_quat = Eigen::Quaternionf(1.0f, 0.0f, 0.0f, 0.0f);
+        }
+        Eigen::Quaternionf tilt_quat = error_quat * twist_quat.conjugate();
 
         return {
             // run pid with 2 * the vector axis for a small angle approximation
-            pid_x_.run(2 * error_quat_.x(), 0.0f),
-            pid_y_.run(2 * error_quat_.y(), 0.0f),
-            pid_z_.run(2 * error_quat_.z(), 0.0f)
+            pid_x_.run(2 * tilt_quat.x(), 0.0f),
+            pid_y_.run(2 * tilt_quat.y(), 0.0f),
+            pid_z_.run(2 * twist_quat.z(), 0.0f)
         };
     }
 

@@ -74,6 +74,7 @@ namespace sensors::encoder
     {
         // initialize AS5600 I2C comms
         magEnc.init(&magI2C);
+        magI2C.setClock(1000000); // set to 1 MHz
 
         // configure the AS5600 for max speed
         AS5600Conf ASconf;
@@ -96,7 +97,7 @@ namespace sensors::encoder
 
         while(1){
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
+            
             // read angle
             float angle_rad = magEnc.readRawAngle() * AS5600_RAW_TO_RAD;
             

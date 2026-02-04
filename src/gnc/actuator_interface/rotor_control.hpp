@@ -41,7 +41,7 @@ namespace gnc {
         
         void allocatorTask(void *pvParameters);
         static void allocateControls(const Eigen::Vector4f& body_commands, Eigen::Vector4f& motor_forces);
-        void sendToDshot(float& throttle_fraction, DShotRMT &motor);
+        void IRAM_ATTR sendToDshot(float& throttle_fraction, DShotRMT &motor);
 
         // Motor objects
         DShotRMT motor1_ = DShotRMT(MOTOR1_PIN, DSHOT300); // 1 motor for testing purposes
@@ -64,6 +64,12 @@ namespace gnc {
         TaskHandle_t allocator_task_handle_ = nullptr;
         static hw_timer_t* rotor_control_timer_;
         static ControlAllocator* instance_;
+
+        // isr stuff
+        volatile float isr_amp_ = 0.0f;
+        volatile float isr_phase_ = 0.0f;
+        volatile float isr_u_motor1_sp_ = 0.0f;
+        volatile bool isr_armed_ = false;
 
 
     };

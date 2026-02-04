@@ -68,7 +68,7 @@ namespace sensors::imu
         mpu.setI2CBypassEnabled(true); // enable direct access to mag via i2c
         mpu.setI2CMasterModeEnabled(false);
         mpu.setSleepEnabled(false);
-        xTaskCreatePinnedToCore(imuTask, "IMU Task", 8192, NULL, 2, &imuTaskHandle, 1);
+        xTaskCreatePinnedToCore(imuTask, "IMU Task", 8192, NULL, 3, &imuTaskHandle, 1);
 
         delay(100);
 
@@ -106,9 +106,9 @@ namespace sensors::imu
         // setup notch filter
         Eigen::Vector3f notched_gyro = Eigen::Vector3f::Zero();
         Eigen::Vector3f notched_accel = Eigen::Vector3f::Zero();
-        float gyro_notch_freq = 35.0f;
+        float gyro_notch_freq = 55.0f;
         float gyro_notch_bw = 10.0f;
-        float accel_notch_freq = 35.0f;
+        float accel_notch_freq = 55.0f;
         float accel_notch_bw = 10.0f;
         NotchFilt gyro_notch_filter_;
         NotchFilt accel_notch_filter_;
@@ -123,6 +123,11 @@ namespace sensors::imu
         gyro_lp_filter_.setup(gyro_f_c, f_s);
         accel_lp_filter_.setup(accel_f_c, f_s);
 
+        // constexpr for optimization
+        const Eigen::Matrix3f IMU_ROT = IMU_TO_BODY_ROT * IMU_TO_FRD_ROT;
+        constexpr float accel_lsb_to_m_s2 = 9.81f / 8192.0f; // for FS = +/-4g
+        constexpr float gyro_lsb_to_rad_s = DEG_TO_RAD / 65.5f;
+
         while (1){
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
@@ -133,15 +138,15 @@ namespace sensors::imu
             }
 
             imu_msg.timestamp = micros();
-            imu_msg.accel << imu_raw[0] / 8192.0f * 9.81f,
-                             imu_raw[1] / 8192.0f * 9.81f,
-                             imu_raw[2] / 8192.0f * 9.81f;
-            imu_msg.gyro << (imu_raw[3] / 65.5f) * DEG_TO_RAD,
-                            (imu_raw[4] / 65.5f) * DEG_TO_RAD,
-                            (imu_raw[5] / 65.5f) * DEG_TO_RAD;
+            imu_msg.accel << imu_raw[0] * accel_lsb_to_m_s2,
+                             imu_raw[1] * accel_lsb_to_m_s2,
+                             imu_raw[2] * accel_lsb_to_m_s2;
+            imu_msg.gyro << imu_raw[3] * gyro_lsb_to_rad_s,
+                            imu_raw[4] * gyro_lsb_to_rad_s,
+                            imu_raw[5] * gyro_lsb_to_rad_s;
             // rotate into FRD
-            imu_msg.gyro = IMU_TO_BODY_ROT * IMU_TO_FRD_ROT * imu_msg.gyro;
-            imu_msg.accel = IMU_TO_BODY_ROT * IMU_TO_FRD_ROT * imu_msg.accel;
+            imu_msg.gyro = IMU_ROT * imu_msg.gyro;
+            imu_msg.accel = IMU_ROT * imu_msg.accel;
 
             // filter accel and gyro with notch, then low pass
             gyro_notch_filter_.apply3d(imu_msg.gyro.data(), notched_gyro.data());
@@ -150,7 +155,7 @@ namespace sensors::imu
             gyro_lp_filter_.apply3d(notched_gyro.data(), imu_msg.gyro_filtered.data());
             accel_lp_filter_.apply3d(notched_accel.data(), imu_msg.accel_filtered.data());
 
-            imu_pub.push(imu_msg);            
+            imu_pub.push(imu_msg);        
         }
     }
 
@@ -159,6 +164,7 @@ namespace sensors::imu
         int16_t mag_raw[3] = {0};
         int16_t last_mag_raw[3] = {0};
         ImuMagMsg mag_msg;
+        const Eigen::Matrix3f MAG_ROT = MAG_TO_BODY_ROT * MAG_TO_FRD_ROT;
 
         const TickType_t delay = pdMS_TO_TICKS(5); // 200 Hz
         TickType_t last_wake_time = xTaskGetTickCount();
@@ -176,12 +182,15 @@ namespace sensors::imu
                                 mag_raw[2] * MAG_LSB_2_uT;
 
                     // rotate into FRD
-                    mag_msg.mag = MAG_TO_BODY_ROT * MAG_TO_FRD_ROT * (mag_msg.mag - mag_bias);
+                    mag_msg.mag = MAG_ROT * (mag_msg.mag - mag_bias);
                     mag_pub.push(mag_msg);
                 
                     last_mag_raw[0] = mag_raw[0];
                     last_mag_raw[1] = mag_raw[1];
                     last_mag_raw[2] = mag_raw[2];
+
+                    // for mag cal
+                    // Serial.printf("%lf\t%lf\t%lf\n", mag_msg.mag[0], mag_msg.mag[1], mag_msg.mag[2]);
                 };
                 xSemaphoreGive(i2c_mutex);
             }
