@@ -33,13 +33,16 @@ namespace gnc
             delay(10);
         }
 
-        xTaskCreate(allocatorTaskEntry, "Control Allocator Task", 8192, this, 3, &allocator_task_handle_);
-    
+        log_queue_ = xQueueCreate(50, sizeof(LogPacket));
+
+        xTaskCreatePinnedToCore(allocatorTaskEntry, "Control Allocator Task", 8192, this, configMAX_PRIORITIES - 1, &allocator_task_handle_, 1);
+        xTaskCreate(loggingTaskEntry, "Logger", 4096, this, 1, &logging_task_handle_);
+
         // create timer
         Serial.println("[Rotor Controller]: Setting up rotor control timer...");
         rotor_control_timer_ = timerBegin(1000000); // 1 MHz timer
         timerAttachInterrupt(rotor_control_timer_, &onRotorControlTimerEntry);
-        timerAlarm(rotor_control_timer_, 1250, true, 0); // 800 Hz alarm, auto-reload
+        timerAlarm(rotor_control_timer_, 1000, true, 0); // 1000 Hz alarm, auto-reload
         Serial.println("[Rotor Controller]: Rotor control initialized.");
     }
 
@@ -77,17 +80,21 @@ namespace gnc
         Eigen::Vector2f blade_xy = Eigen::Vector2f::Zero(); //  blade flapping angle
         Eigen::Vector2f u_motor_sp = Eigen::Vector2f::Zero(); // motor commands
 
+        uint32_t count = 0;
+
         
         while (true)
         {
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+            count++;
 
             // receive data
             thrust_sp_sub_.pull_if_new(thrust_sp_msg_);
             vehicle_state_sub_.pull_if_new(vehicle_state_);
+            torque_sp_sub_.pull_if_new(torque_sp_msg_);
 
-            // this runs at around 1000 hz
-            if (torque_sp_sub_.pull_if_new(torque_sp_msg_)){
+            // run math at 500hz
+            if (count % 2 == 0) {
                 // allocate motor commands
                 body_commands << thrust_sp_msg_.setpoint, torque_sp_msg_.setpoint.x(), torque_sp_msg_.setpoint.y(), torque_sp_msg_.setpoint.z();
                 // map to motor forces
@@ -112,6 +119,17 @@ namespace gnc
                 // u = sqrt(thrust / k)
                 u_motor_sp(0) = sqrtf(std::max(0.0f, motor_forces(2) * THRUST_COEFF_TOP_INV));  // top motor
                 u_motor_sp(1) = sqrtf(std::max(0.0f, motor_forces(3) * THRUST_COEFF_BOT_INV));  // bottom motor
+
+                // publish for logging
+                LogPacket packet;
+                packet.timestamp = micros();
+                packet.force_setpoint = motor_forces;
+                packet.actuator_sp[0] = blade_xy.x();
+                packet.actuator_sp[1] = blade_xy.y();
+                packet.actuator_sp[2] = u_motor_sp(0);
+                packet.actuator_sp[3] = u_motor_sp(1);
+                
+                xQueueSend(log_queue_, &packet, 0);
             }
 
             // convert to an oscillatory throttle response
@@ -136,13 +154,6 @@ namespace gnc
                 motor2_output = 0.0f;
             } 
 
-            
-            // publish for logging
-            motor_forces_msg_.timestamp = micros();
-            motor_forces_msg_.force_setpoint = motor_forces;
-            motor_forces_msg_.actuator_setpoints << blade_xy.x(), blade_xy.y(), motor1_output, motor2_output;
-            motor_forces_pub_.push(motor_forces_msg_);
-
             sendToDshot(motor1_output, motor1_);
             sendToDshot(motor2_output, motor2_);
         }
@@ -160,4 +171,19 @@ namespace gnc
         uint16_t dshot_value = static_cast<uint16_t>(48 + throttle_fraction * (2047 - 48));
         motor.sendThrottle(dshot_value);
     }
+
+    void ControlAllocator::loggingTask(void* pvParameters) 
+    {
+        LogPacket packet;
+        while (true) {
+            if (xQueueReceive(log_queue_, &packet, portMAX_DELAY)) {
+                motor_forces_msg_.timestamp = packet.timestamp;
+                motor_forces_msg_.force_setpoint = packet.force_setpoint;
+                motor_forces_msg_.actuator_setpoints << packet.actuator_sp[0], packet.actuator_sp[1], 
+                                                        packet.actuator_sp[2], packet.actuator_sp[3];
+                motor_forces_pub_.push(motor_forces_msg_); 
+            }
+        }
+    }
 }
+

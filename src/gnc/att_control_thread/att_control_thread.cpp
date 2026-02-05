@@ -65,11 +65,13 @@ namespace gnc {
                 // thrust setpoint from rc (0 to 1 mapped to 0 to 10 N)
                 thrust_setpoint_msg_.setpoint = max_manual_throttle_force * rc_command_msg_.throttle; // map directly for now (adjust expo in rc controller)
                 thrust_setpoint_pub_.push(thrust_setpoint_msg_);
+                break;
                 
             case FlightMode::ALT_HOLD: // subs: rc_cmd | pubs: att sp
                 createAttSetpointFromRc(att_setpoint_msg_); // overwrite with rc command in manual modes
                 att_setpoint_msg_.timestamp = micros();
                 att_setpoint_debug_pub_.push(att_setpoint_msg_);
+                break;
             case FlightMode::POS_HOLD: // subs: att_sp | pubs: none
                 att_setpoint_sub_.pull_if_new(att_setpoint_msg_);
                 break;

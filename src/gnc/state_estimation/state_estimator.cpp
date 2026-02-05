@@ -95,13 +95,14 @@ void StateEstimator::init()
                           gyro_noise_var_, gyro_walk_var_);
 
     // start the estimator
-    xTaskCreate(
+    xTaskCreatePinnedToCore(
         StateEstimator::stateEstimatorTaskEntry,
         "StateEstimatorTask",
         16384,
         this,
         3,
-        &stateEstimatorTaskHandle_
+        &stateEstimatorTaskHandle_,
+        1
     );
 
     Serial.println("[StateEstimator] State Estimator Task Started.");

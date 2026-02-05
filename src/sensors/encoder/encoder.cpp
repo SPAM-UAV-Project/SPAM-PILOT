@@ -66,7 +66,7 @@ namespace sensors::encoder
         Serial.println("[Encoder]: Setting up timer");
         encoderTimer = timerBegin(1000000); // 1 MHz timer
         timerAttachInterrupt(encoderTimer, &onEncoderTimer);
-        timerAlarm(encoderTimer, 1000, true, 0); // 1000 Hz alarm, auto-reload
+        timerAlarm(encoderTimer, 500, true, 0); // 2000 Hz alarm, auto-reload
         Serial.println("[Encoder]: Encoder initialized.");
     }
 
@@ -96,8 +96,7 @@ namespace sensors::encoder
         EncoderMsg encoder_msg;
 
         while(1){
-            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-            
+            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);            
             // read angle
             float angle_rad = magEnc.readRawAngle() * AS5600_RAW_TO_RAD;
             

@@ -40,6 +40,13 @@ namespace gnc {
         }
         
         void allocatorTask(void *pvParameters);
+
+
+        static void loggingTaskEntry(void* pvParameters) {
+            static_cast<ControlAllocator*>(pvParameters)->loggingTask(pvParameters);
+        }
+        void loggingTask(void* pvParameters);
+
         static void allocateControls(const Eigen::Vector4f& body_commands, Eigen::Vector4f& motor_forces);
         void IRAM_ATTR sendToDshot(float& throttle_fraction, DShotRMT &motor);
 
@@ -58,7 +65,14 @@ namespace gnc {
         TorqueSetpointMsg torque_sp_msg_;
         VehicleStateMsg vehicle_state_;
         MotorForcesMsg motor_forces_msg_;
-        
+
+        struct LogPacket {
+            uint32_t timestamp;
+            Eigen::Vector4f force_setpoint;
+            float actuator_sp[4]; // bx, by, m1, m2
+        };
+        QueueHandle_t log_queue_;
+        TaskHandle_t logging_task_handle_;
 
         // freertos stuff
         TaskHandle_t allocator_task_handle_ = nullptr;
