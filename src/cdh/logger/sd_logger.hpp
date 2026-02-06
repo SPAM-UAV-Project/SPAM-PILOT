@@ -16,6 +16,8 @@
 #include "msgs/RateSetpointMsg.hpp"
 #include "msgs/TorqueSetpointMsg.hpp"
 #include "msgs/EncoderMsg.hpp"
+#include "msgs/ImuIntegrated.hpp"
+#include "msgs/EkfInnovations.hpp"
 
 namespace cdh {
 
@@ -41,7 +43,9 @@ enum class LogMsgType : uint8_t {
     ATT_SP = 3,
     RATE_SP = 4,
     TORQUE_SP = 5,
-    ENCODER = 6
+    ENCODER = 6,
+    IMU_INTEGRATED = 7,
+    EKF_INNOVATIONS = 8
 };
 
 // Binary log entry header (4 bytes)
@@ -94,6 +98,22 @@ struct __attribute__((packed)) LogEncoder {
     float angle_rad;
     float angular_velocity_rad_s;
 };  // 16 bytes
+
+struct __attribute__((packed)) LogImuIntegrated {
+    uint64_t timestamp;
+    float delta_vel[3];
+    float delta_angle[3];
+    float delta_vel_dt;
+    float delta_angle_dt;
+};  // 40 bytes
+
+struct __attribute__((packed)) LogEkfInnovations {
+    uint64_t timestamp;
+    float mag_innov[3];
+    float mag_innov_cov[9];  // 3x3 matrix row-major
+    float gravity_innov[3];
+    float gravity_innov_cov[9];  // 3x3 matrix row-major
+};  // 104 bytes
 
 // File header
 struct __attribute__((packed)) LogFileHeader {
@@ -176,6 +196,8 @@ private:
     Topic<RateSetpointMsg>::Subscriber rate_sp_sub_;
     Topic<TorqueSetpointMsg>::Subscriber torque_sp_sub_;
     Topic<EncoderMsg>::Subscriber encoder_sub_;
+    Topic<ImuIntegratedMsg>::Subscriber imu_integrated_sub_;
+    Topic<EkfInnovationsMsg>::Subscriber ekf_innovations_sub_;
 
     // Message buffers for subscribers
     ImuHighRateMsg imu_msg_;
@@ -185,6 +207,8 @@ private:
     RateSetpointMsg rate_sp_msg_;
     TorqueSetpointMsg torque_sp_msg_;
     EncoderMsg encoder_msg_;
+    ImuIntegratedMsg imu_integrated_msg_;
+    EkfInnovationsMsg ekf_innovations_msg_;
 
     TaskHandle_t logger_task_handle_ = nullptr;
     TaskHandle_t writer_task_handle_ = nullptr;
@@ -216,6 +240,8 @@ private:
     void logRateSp();
     void logTorqueSp();
     void logEncoder();
+    void logImuIntegrated();
+    void logEkfInnovations();
 };
 
 } // namespace cdh

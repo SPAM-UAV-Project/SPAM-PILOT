@@ -5,22 +5,21 @@
 
 #include "gnc/state_estimation/eskf.hpp"
 #include "gnc/state_estimation/math/helpers.hpp"
+#include "msgs/ImuIntegrated.hpp"
 
 namespace gnc {
 
-void ESKF::fuseGravity(const Eigen::Vector3f& accel_meas, const Eigen::Vector3f& accel_meas_filtered, const Eigen::Matrix3f& measCov)
-{
+void ESKF::fuseGravity(const ImuIntegratedMsg& imu_integrated_msg, const Eigen::Vector3f& accel_meas_filtered_, const Eigen::Matrix3f& measCov){
     Eigen::Quaternionf current_quat(x_.segment<4>(QUAT_ID));
-    Eigen::Vector3f accel_corrected = (accel_meas - x_.segment<3>(AB_ID));
+    // normalize measurement to unit vector since we only care about direction
+    Eigen::Vector3f accel_corrected = ((imu_integrated_msg.delta_vel / imu_integrated_msg.delta_vel_dt) - x_.segment<3>(AB_ID)).normalized();
 
     // if filtered accel measurement is too small or too large, skip aiding (vehicle is accelerating)
     // filter here since accel data is probably way too noisy for this application
-    if (accel_meas_filtered.squaredNorm() < SQ(GRAVITY * 0.9f) || accel_meas_filtered.squaredNorm() > SQ(GRAVITY * 1.1f)) {
+    // Serial.println("Gravity fusion: accel norm = " + String(accel_meas_filtered_.norm()));
+    if (accel_meas_filtered_.squaredNorm() < SQ(GRAVITY * 0.9f) || accel_meas_filtered_.squaredNorm() > SQ(GRAVITY * 1.1f)) {
         return;
     }
-
-    // normalize measurement to unit vector since we only care about direction
-    accel_corrected.normalize();
 
     // get innovation
     Eigen::Vector3f gravity_pred = current_quat.toRotationMatrix().transpose() * Eigen::Vector3f(0.0f, 0.0f, -1.0f);
@@ -32,7 +31,11 @@ void ESKF::fuseGravity(const Eigen::Vector3f& accel_meas, const Eigen::Vector3f&
     H.block<3, 3>(0, dTHETA_ID) = getSkewSymmetric(gravity_pred);
 
     // fuse, correct measCov by dividing by gravity squared
-    fuseMeasurement3D(innov, measCov / SQ(GRAVITY), H);
+    Eigen::Matrix3f S = fuseMeasurement3D(innov, measCov / SQ(GRAVITY), H);
+
+    ekf_innovations_msg.timestamp = micros();
+    ekf_innovations_msg.gravity_innov = innov;
+    ekf_innovations_msg.gravity_innov_cov = S;
 }
 
 } // namespace gnc

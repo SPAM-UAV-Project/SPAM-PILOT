@@ -216,6 +216,8 @@ void SdLogger::loggerTask() {
             logRateSp();
             logTorqueSp();
             logEncoder();
+            logImuIntegrated();
+            logEkfInnovations();
         }
         
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(SD_LOG_PERIOD_MS));  // 500Hz
@@ -388,6 +390,61 @@ void SdLogger::logEncoder() {
     payload.timestamp = encoder_msg_.timestamp;
     payload.angle_rad = encoder_msg_.angle_rad;
     payload.angular_velocity_rad_s = encoder_msg_.angular_velocity_rad_s;
+    
+    writeLogEntry(hdr, &payload, sizeof(payload));
+}
+
+void SdLogger::logImuIntegrated() {
+    if (!imu_integrated_sub_.pull_if_new(imu_integrated_msg_)) return;
+    
+    LogHeader hdr = {
+        .msg_type = static_cast<uint8_t>(LogMsgType::IMU_INTEGRATED),
+        .payload_size = sizeof(LogImuIntegrated),
+        .reserved = 0
+    };
+    
+    LogImuIntegrated payload;
+    payload.timestamp = imu_integrated_msg_.timestamp;
+    payload.delta_vel[0] = imu_integrated_msg_.delta_vel.x();
+    payload.delta_vel[1] = imu_integrated_msg_.delta_vel.y();
+    payload.delta_vel[2] = imu_integrated_msg_.delta_vel.z();
+    payload.delta_angle[0] = imu_integrated_msg_.delta_angle.x();
+    payload.delta_angle[1] = imu_integrated_msg_.delta_angle.y();
+    payload.delta_angle[2] = imu_integrated_msg_.delta_angle.z();
+    payload.delta_vel_dt = imu_integrated_msg_.delta_vel_dt;
+    payload.delta_angle_dt = imu_integrated_msg_.delta_angle_dt;
+    
+    writeLogEntry(hdr, &payload, sizeof(payload));
+}
+
+void SdLogger::logEkfInnovations() {
+    if (!ekf_innovations_sub_.pull_if_new(ekf_innovations_msg_)) return;
+    
+    LogHeader hdr = {
+        .msg_type = static_cast<uint8_t>(LogMsgType::EKF_INNOVATIONS),
+        .payload_size = sizeof(LogEkfInnovations),
+        .reserved = 0
+    };
+    
+    LogEkfInnovations payload;
+    payload.timestamp = ekf_innovations_msg_.timestamp;
+    payload.mag_innov[0] = ekf_innovations_msg_.mag_innov.x();
+    payload.mag_innov[1] = ekf_innovations_msg_.mag_innov.y();
+    payload.mag_innov[2] = ekf_innovations_msg_.mag_innov.z();
+    // Row-major 3x3 matrix
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            payload.mag_innov_cov[i * 3 + j] = ekf_innovations_msg_.mag_innov_cov(i, j);
+        }
+    }
+    payload.gravity_innov[0] = ekf_innovations_msg_.gravity_innov.x();
+    payload.gravity_innov[1] = ekf_innovations_msg_.gravity_innov.y();
+    payload.gravity_innov[2] = ekf_innovations_msg_.gravity_innov.z();
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            payload.gravity_innov_cov[i * 3 + j] = ekf_innovations_msg_.gravity_innov_cov(i, j);
+        }
+    }
     
     writeLogEntry(hdr, &payload, sizeof(payload));
 }

@@ -8,6 +8,9 @@
 
 #include <ArduinoEigen/Eigen/Dense>
 #include <Arduino.h>
+#include "filter/ema.hpp"
+#include "msgs/ImuIntegrated.hpp"
+#include "msgs/EkfInnovations.hpp"
 
 using namespace Eigen;
 
@@ -50,17 +53,21 @@ public:
                          const Matrix3f& gb_cov);
     void initSensorNoise(const float accel_noise_var, const float accel_walk_var,
                          const float gyro_noise_var, const float gyro_walk_var);
-    void predictStates(const Vector3f& accelMeas, const Vector3f& gyroMeas, float dt);
-
+    void predictStates(const ImuIntegratedMsg& imu_msg);
     void fuseMag(const Eigen::Vector3f& magMeas, const Matrix3f& magMeasCov);
-    void fuseGravity(const Eigen::Vector3f& accel_meas, const Eigen::Vector3f& accel_meas_filtered, const Eigen::Matrix3f& measCov);
+    void fuseGravity(const ImuIntegratedMsg& imu_integrated_msg, const Eigen::Vector3f& accel_filtered, const Eigen::Matrix3f& measCov);
 
     Eigen::VectorXf getStateVariable(int id, int length) {
         return x_.segment(id, length);
     }
 
+    // innovations msg
+    Topic<EkfInnovationsMsg>::Publisher ekf_innovations_pub;
+    EkfInnovationsMsg ekf_innovations_msg;
+
 private:
-    void fuseMeasurement3D(const Vector3f& innov,
+    // returns the measurement innovation covariance S
+    Eigen::Matrix3f fuseMeasurement3D(const Vector3f& innov,
         const Matrix3f& measCov,
         const Matrix<float, 3, dSTATE_SIZE>& H);
 
@@ -78,6 +85,7 @@ private:
 
     // initial measurements of interest
     Eigen::Vector3f init_mag_nav_;
+
 };
 
 }

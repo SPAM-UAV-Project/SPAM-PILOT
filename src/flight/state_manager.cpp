@@ -76,20 +76,7 @@ void StateManager::stateManagerTask() {
         switch (cur_state_)
         {
         case SystemState::INITIALIZING:
-            sensors::imu::initIMU();
-            // delay(200);  // Allow I2C bus 1 to stabilize
-            sensors::encoder::initEncoder();
-            // delay(200);  // Allow I2C bus 0 to stabilize
-            state_estimator_.init();
-            radio_controller_.init();
-            if (!sd_logger_.init()) {
-                Serial.println("[StateManager] Warning: SD Logger init failed!");
-            }
 
-            // initialize controllers
-            att_control_thread_.init();
-            rate_control_thread_.init();
-            control_allocator_.initRotor();
 #ifdef MAVLINK_ENABLED
             // initialize mavlink
             //mavlink_comms_.registerTransport(&usb_transport_);
@@ -98,6 +85,21 @@ void StateManager::stateManagerTask() {
 #endif // WIFI_TRANSPORT
             mavlink_comms_.init();
 #endif // MAVLINK_ENABLED
+
+            radio_controller_.init();
+            if (!sd_logger_.init()) {
+                Serial.println("[StateManager] Warning: SD Logger init failed!");
+            }
+
+            sensors::imu::initIMU();
+            sensors::encoder::initEncoder();
+            state_estimator_.init();
+
+            // initialize controllers
+            att_control_thread_.init();
+            rate_control_thread_.init();
+            control_allocator_.initRotor();
+
             switchState(SystemState::DISARMED);
             break;
         case SystemState::DISARMED:

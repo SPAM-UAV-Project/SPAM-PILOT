@@ -6,7 +6,10 @@
 #include "gnc/state_estimation/state_estimator.hpp"
 #include "gnc/state_estimation/ESKF.hpp"
 #include "msgs/ImuHighRateMsg.hpp"
+#include "msgs/ImuIntegrated.hpp"
 #include "msgs/ImuMagMsg.hpp"
+
+#include "timing/task_timing.hpp"
 
 namespace gnc {
 
@@ -74,6 +77,10 @@ void StateEstimator::getInitialStates()
                   init_quat_.x(), init_quat_.y(), init_quat_.z(), init_quat_.w());
     Serial.printf("[StateEstimator] Initial Mag in Nav Frame: [%.4f, %.4f, %.4f] uT\n",
                   init_mag_nav_.x(), init_mag_nav_.y(), init_mag_nav_.z());
+
+    // initialize accel meas filter
+    accel_meas_filter_.setTimeConst(0.05f, dt_);
+    accel_meas_filtered_ = accel_meas_filter_.apply3d(avg_accel);
     
 }
 
@@ -115,26 +122,33 @@ void StateEstimator::stateEstimatorTask(void *pvParameters)
     long last_loop_time = micros();
     long current_time = micros();
 
+    TaskTiming task_timer("StateEstimator", 4000); // 4000 us budget for 250 hz
+
     while (true) {
+        // start timer
+        task_timer.startCycle();
+
         // obtain sensor data
-        if (imu_gyro_accel_sub_.pull_if_new(imu_gyro_accel_msg_)) {
+        if (imu_integrated_sub_.pull_if_new(imu_integrated_msg_)) {
             // compute dt
             current_time = micros();
             dt_ = (current_time - last_loop_time) * 1e-6f; // convert to seconds
             last_loop_time = current_time;
 
             // obtain prior estimate
-            eskf_.predictStates(imu_gyro_accel_msg_.accel,
-                                    imu_gyro_accel_msg_.gyro,
-                                    dt_);
+            eskf_.predictStates(imu_integrated_msg_);
 
             // fuse gravity 
-            eskf_.fuseGravity(imu_gyro_accel_msg_.accel, imu_gyro_accel_msg_.accel_filtered, Eigen::Matrix3f(accel_noise_var_ * I_3));
+            accel_meas_filtered_ = accel_meas_filter_.apply3d(imu_integrated_msg_.delta_vel / imu_integrated_msg_.delta_vel_dt);
+            eskf_.fuseGravity(imu_integrated_msg_, accel_meas_filtered_, Eigen::Matrix3f(accel_noise_var_ * I_3));
         }
 
-        // if recieved mag data, update the filter
+        // if received mag data, update the filter
         if (imu_mag_sub_.pull_if_new(imu_mag_msg_)) {
             eskf_.fuseMag(imu_mag_msg_.mag, Eigen::Matrix3f(mag_meas_var_ * I_3));
+            // publish innovations on mag fusion (slowest)
+            eskf_.ekf_innovations_msg.timestamp = current_time;
+            eskf_.ekf_innovations_pub.push(eskf_.ekf_innovations_msg);
         }
 
         // publish states - note that the time here is not synchronized with the filter update
@@ -145,6 +159,13 @@ void StateEstimator::stateEstimatorTask(void *pvParameters)
         ekf_states_msg_.accel_bias = eskf_.getStateVariable(AB_ID, 3);
         ekf_states_msg_.gyro_bias = eskf_.getStateVariable(GB_ID, 3);
         ekf_states_pub_.push(ekf_states_msg_);
+
+        // print timing info
+        task_timer.endCycle();
+
+        if (task_timer.getCycleCount() % 250 == 0) {
+            task_timer.printStats();
+        }
         
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
     }

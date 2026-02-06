@@ -12,7 +12,7 @@ namespace gnc {
 
     // print mag to serial
     inline void print3DUpdate(const Eigen::Vector3f& meas, const Eigen::Vector3f& pred, const Eigen::Vector3f& innov, const Eigen::Quaternionf& quat) {
-        // clear screen on first update
+        //clear screen on first update
         static bool first_print = true;
         if (first_print) {
             Serial.print("\e[2J"); // Clear screen
@@ -54,12 +54,22 @@ namespace gnc {
             first_cov_print = false;
         }
         Serial.print("\e[H"); // Move cursor to top left
-        Serial.println("EKF COVARIANCE MONITOR");
-
-        // only print the dAtt rows and columns (3x3) at dTHETA_ID
+        Serial.println("ATTITUDE COVARIANCE");
+        Serial.print("P_THETA_THETA:\n");
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
-                Serial.print(P(dTHETA_ID + i, dTHETA_ID + j), 6);
+                Serial.print(P(i + dTHETA_ID, j + dTHETA_ID), 6);
+                Serial.print(" ");
+            }
+            Serial.println();
+        }
+    }
+
+    inline void printInnovCovariance(const Eigen::Matrix<float, 3, 3>& mat) {
+        Serial.println("3x3 Matrix:");
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                Serial.print(mat(i, j), 6);
                 Serial.print(" ");
             }
             Serial.println();

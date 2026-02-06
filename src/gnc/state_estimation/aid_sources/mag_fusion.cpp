@@ -46,7 +46,11 @@ void ESKF::fuseMag(const Eigen::Vector3f& magMeas, const Matrix3f& magMeasCov)
 #endif
 
     H.block<3, 3>(0, dTHETA_ID) = getSkewSymmetric(mag_pred);
-    fuseMeasurement3D(innov, magMeasCov, H);
+    Eigen::Matrix3f S = fuseMeasurement3D(innov, magMeasCov, H);
+
+    ekf_innovations_msg.timestamp = micros();
+    ekf_innovations_msg.mag_innov = innov;
+    ekf_innovations_msg.mag_innov_cov = S;
 }
 
 } // namespace gnc
