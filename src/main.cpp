@@ -10,4 +10,19 @@ void setup()
     state_manager.init();
 }
 
-void loop() {}
+void loop() {
+
+    // // Allocate a buffer (approx 40 bytes per task)
+    // char statsBuffer[1024]; 
+    
+    // Serial.println("\nTask Name\tAbs Time\tTime %");
+    // Serial.println("------------------------------------------");
+    
+    // // This function fills the buffer with a formatted table
+    // vTaskGetRunTimeStats(statsBuffer);
+    
+    // Serial.println(statsBuffer);
+    
+    // // Print every 5 seconds
+    // vTaskDelay(pdMS_TO_TICKS(5000));
+}

@@ -63,7 +63,7 @@ namespace gnc
         constexpr float THRUST_COEFF_TOP_INV = (1.0f / 10.9837f);
         constexpr float THRUST_COEFF_BOT_INV = (1.0f / 9.3460f);
         constexpr float TOP_MOTOR_ARM = 0.18f;
-        constexpr float AMP_CUT_IN = 0.18f;
+        constexpr float AMP_CUT_IN = 0.17f;
         constexpr float PHASE_LAG = (30.0f * M_PI / 180.0f);
 
         Eigen::Vector4f motor_forces = Eigen::Vector4f::Zero(); // f1x, f1y, f1z, f2z
@@ -107,7 +107,7 @@ namespace gnc
                     blade_xy.x() = -motor_forces(1) / (motor_forces(2) + 1e-6f); // f1y / f1z = B_x
                     
                     // for swashplateless rotor control, we need to find an amplitude and a phase lag
-                    amplitude = AMP_CUT_IN + sqrtf(SQ(blade_xy(0)) + SQ(blade_xy(1)));
+                    amplitude = AMP_CUT_IN + 2 * (sqrtf(SQ(blade_xy(0)) + SQ(blade_xy(1))));
                     amplitude = std::min(amplitude, max_blade_angle); // cap amplitude to avoid excessive commands / vibrations
                     phase = atan2f(blade_xy(1), blade_xy(0));
                 } else {

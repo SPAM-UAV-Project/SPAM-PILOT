@@ -14,6 +14,8 @@
 #include "filter/notch.hpp"
 #include "integrator/integrator.hpp"
 
+#include "timing/task_timing.hpp"
+
 namespace sensors::imu
 {
     TwoWire imuI2C = TwoWire(1);  // use I2C bus 1 for IMU
@@ -73,7 +75,7 @@ namespace sensors::imu
         mpu.setI2CBypassEnabled(true); // enable direct access to mag via i2c
         mpu.setI2CMasterModeEnabled(false);
         mpu.setSleepEnabled(false);
-        xTaskCreatePinnedToCore(imuTask, "IMU Task", 8192, NULL, 3, &imuTaskHandle, 1);
+        xTaskCreate(imuTask, "IMU Task", 8192, NULL, 4, &imuTaskHandle);
 
         delay(100);
 
@@ -86,7 +88,7 @@ namespace sensors::imu
         mag.setMeasurementMode(HMC5883L_CONTINOUS); 
         mag.setDataRate(HMC5883L_DATARATE_30HZ);
         mag.setSamples(HMC5883L_SAMPLES_8); // oversampling
-        xTaskCreatePinnedToCore(magTask, "Mag Task", 8192, NULL, 3, NULL, 1);
+        xTaskCreatePinnedToCore(magTask, "Mag Task", 8192, NULL, 2, NULL, 1);
 
         // start interrupts
         pinMode(PIN_IMU_INT, INPUT);
@@ -137,8 +139,12 @@ namespace sensors::imu
         // timing for integration and pubs
         uint32_t last_timestamp_us = micros();
 
+        // TaskTiming task_timer("IMU Task", 1000);
+
         while (1){
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+            // task_timer.startCycle();
 
             uint32_t current_timestamp_us = micros();
             uint32_t dt_us = current_timestamp_us - last_timestamp_us;
@@ -171,8 +177,8 @@ namespace sensors::imu
             imu_pub.push(imu_msg);    
 
             // integrate at 250hz for ekf prediction
-            accel_integrator.integrate3d(imu_msg.accel, dt_us); // dt in us
-            gyro_integrator.integrate3d(imu_msg.gyro, dt_us);
+            accel_integrator.integrate3d(notched_accel, dt_us); // dt in us
+            gyro_integrator.integrate3d(notched_gyro, dt_us);
 
             if (accel_integrator.isReady(ekf_dt_thres_us) && gyro_integrator.isReady(ekf_dt_thres_us)) {
                 ImuIntegratedMsg imu_int_msg;
@@ -184,6 +190,12 @@ namespace sensors::imu
                 imu_int_pub.push(imu_int_msg);
             }
 
+            // task_timer.endCycle();
+
+            // // if 1 second has passed, print
+            // if (task_timer.getCycleCount() % 1000 == 0) {
+            //     task_timer.printStats();
+            // }
         }
     }
 

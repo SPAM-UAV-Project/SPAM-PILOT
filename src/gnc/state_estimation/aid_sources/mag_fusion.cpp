@@ -3,7 +3,7 @@
 
 namespace gnc {
 
-void ESKF::fuseMag(const Eigen::Vector3f& magMeas, const Matrix3f& magMeasCov)
+void ESKF::fuseMag(const Eigen::Vector3f& magMeas, const float& R)
 {
     // predicted body mag measurement (measurement model)
     Eigen::Quaternionf current_quat(x_.segment<4>(QUAT_ID));
@@ -14,12 +14,12 @@ void ESKF::fuseMag(const Eigen::Vector3f& magMeas, const Matrix3f& magMeasCov)
 
     //print3DUpdate(magMeas, mag_pred, innov, current_quat);
 
-    // Jacob. of measurement model -> H = H_x X_dx, where X_dx is the jacobian of state to error state 
+    // Jacob. of measurement model -> H = H_x X_dx, where X_dx is the jacobian of state to error state
     Eigen::Matrix<float, 3, dSTATE_SIZE> H = Eigen::Matrix<float, 3, dSTATE_SIZE>::Zero();
 
     // Eigen::Matrix<float, 3, 4> H_x;
     // Eigen::Vector3f dh_dq_w = 2*(current_quat.w()*init_mag_nav_ + current_quat.vec().cross(init_mag_nav_));
-    // Eigen::Matrix3f dh_dq_v = 2*(current_quat.vec().transpose()*init_mag_nav_*Eigen::Matrix3f::Identity()
+    // Eigen::Matrix3f dh_dq_v = 2*(c`urrent_quat.vec().transpose()*init_mag_nav_*Eigen::Matrix3f::Identity()
     //                             + current_quat.vec()*init_mag_nav_.transpose()
     //                             - init_mag_nav_*current_quat.vec().transpose()
     //                             - current_quat.w()*getSkewSymmetric(init_mag_nav_));
@@ -45,8 +45,8 @@ void ESKF::fuseMag(const Eigen::Vector3f& magMeas, const Matrix3f& magMeasCov)
     print3DUpdate(magMeas, mag_pred, innov, current_quat);
 #endif
 
-    H.block<3, 3>(0, dTHETA_ID) = getSkewSymmetric(mag_pred);
-    Eigen::Matrix3f S = fuseMeasurement3D(innov, magMeasCov, H);
+    H.block<3, 3>(0, dTHETA_ID) = getSkewSymmetric(mag_pred); // unrolled takes a 3x3 matrix
+    Eigen::Vector3f S = fuseAttitude3D(innov, RAD_TO_DEG, H);
 
     ekf_innovations_msg.timestamp = micros();
     ekf_innovations_msg.mag_innov = innov;

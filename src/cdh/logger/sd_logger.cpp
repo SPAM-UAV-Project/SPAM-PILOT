@@ -11,6 +11,10 @@ bool SdLogger::init() {
     gpio_reset_pin((static_cast<gpio_num_t>(PIN_SD_SCK)));
     gpio_reset_pin((static_cast<gpio_num_t>(PIN_SD_MOSI)));
     gpio_reset_pin((static_cast<gpio_num_t>(PIN_SD_MISO)));
+    pinMode(PIN_SD_CS, OUTPUT);
+    pinMode(PIN_SD_SCK, OUTPUT);
+    pinMode(PIN_SD_MOSI, OUTPUT);
+    pinMode(PIN_SD_MISO, INPUT);
     SPI.begin(PIN_SD_SCK, PIN_SD_MISO, PIN_SD_MOSI, PIN_SD_CS);
     
     if (!SD.begin(PIN_SD_CS, SPI, SD_SPI_FREQ)) {
@@ -431,21 +435,17 @@ void SdLogger::logEkfInnovations() {
     payload.mag_innov[0] = ekf_innovations_msg_.mag_innov.x();
     payload.mag_innov[1] = ekf_innovations_msg_.mag_innov.y();
     payload.mag_innov[2] = ekf_innovations_msg_.mag_innov.z();
-    // Row-major 3x3 matrix
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 3; j++) {
-            payload.mag_innov_cov[i * 3 + j] = ekf_innovations_msg_.mag_innov_cov(i, j);
-        }
-    }
+    payload.mag_innov_cov[0] = ekf_innovations_msg_.mag_innov_cov(0);
+    payload.mag_innov_cov[1] = ekf_innovations_msg_.mag_innov_cov(1);
+    payload.mag_innov_cov[2] = ekf_innovations_msg_.mag_innov_cov(2);
+
     payload.gravity_innov[0] = ekf_innovations_msg_.gravity_innov.x();
     payload.gravity_innov[1] = ekf_innovations_msg_.gravity_innov.y();
     payload.gravity_innov[2] = ekf_innovations_msg_.gravity_innov.z();
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 3; j++) {
-            payload.gravity_innov_cov[i * 3 + j] = ekf_innovations_msg_.gravity_innov_cov(i, j);
-        }
-    }
-    
+    payload.gravity_innov_cov[0] = ekf_innovations_msg_.gravity_innov_cov(0);
+    payload.gravity_innov_cov[1] = ekf_innovations_msg_.gravity_innov_cov(1);
+    payload.gravity_innov_cov[2] = ekf_innovations_msg_.gravity_innov_cov(2);
+
     writeLogEntry(hdr, &payload, sizeof(payload));
 }
 

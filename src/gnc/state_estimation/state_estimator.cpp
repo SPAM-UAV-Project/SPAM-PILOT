@@ -4,7 +4,6 @@
  */
 
 #include "gnc/state_estimation/state_estimator.hpp"
-#include "gnc/state_estimation/ESKF.hpp"
 #include "msgs/ImuHighRateMsg.hpp"
 #include "msgs/ImuIntegrated.hpp"
 #include "msgs/ImuMagMsg.hpp"
@@ -121,12 +120,13 @@ void StateEstimator::stateEstimatorTask(void *pvParameters)
     TickType_t xLastWakeTime = xTaskGetTickCount();
     long last_loop_time = micros();
     long current_time = micros();
+    uint32_t loop_counter = 0;
 
-    TaskTiming task_timer("StateEstimator", 4000); // 4000 us budget for 250 hz
+    // TaskTiming task_timer("StateEstimator", 4000); // 4000 us budget for 250 hz
 
     while (true) {
         // start timer
-        task_timer.startCycle();
+        // task_timer.startCycle();
 
         // obtain sensor data
         if (imu_integrated_sub_.pull_if_new(imu_integrated_msg_)) {
@@ -140,12 +140,15 @@ void StateEstimator::stateEstimatorTask(void *pvParameters)
 
             // fuse gravity 
             accel_meas_filtered_ = accel_meas_filter_.apply3d(imu_integrated_msg_.delta_vel / imu_integrated_msg_.delta_vel_dt);
-            eskf_.fuseGravity(imu_integrated_msg_, accel_meas_filtered_, Eigen::Matrix3f(accel_noise_var_ * I_3));
+            if (loop_counter % 5 == 0) { // fuse gravity at 50 Hz to save computation
+                eskf_.fuseGravity(imu_integrated_msg_, accel_meas_filtered_, accel_noise_var_);
+            }
+            loop_counter++;
         }
 
         // if received mag data, update the filter
         if (imu_mag_sub_.pull_if_new(imu_mag_msg_)) {
-            eskf_.fuseMag(imu_mag_msg_.mag, Eigen::Matrix3f(mag_meas_var_ * I_3));
+            eskf_.fuseMag(imu_mag_msg_.mag, mag_meas_var_);
             // publish innovations on mag fusion (slowest)
             eskf_.ekf_innovations_msg.timestamp = current_time;
             eskf_.ekf_innovations_pub.push(eskf_.ekf_innovations_msg);
@@ -161,11 +164,11 @@ void StateEstimator::stateEstimatorTask(void *pvParameters)
         ekf_states_pub_.push(ekf_states_msg_);
 
         // print timing info
-        task_timer.endCycle();
+        // task_timer.endCycle();
 
-        if (task_timer.getCycleCount() % 250 == 0) {
-            task_timer.printStats();
-        }
+        // if (task_timer.getCycleCount() % 250 == 0) {
+        //     task_timer.printStats();
+        // }
         
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
     }

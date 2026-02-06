@@ -6,7 +6,7 @@
 #ifndef STATE_ESTIMATOR_HPP
 #define STATE_ESTIMATOR_HPP
 
-#include "gnc/state_estimation/ESKF.hpp"
+#include "gnc/state_estimation/eskf.hpp"
 #include "msgs/ImuHighRateMsg.hpp"
 #include "msgs/ImuMagMsg.hpp"
 #include "msgs/EkfStatesMsg.hpp"
@@ -43,11 +43,11 @@ namespace gnc {
         float ab_var_init_ = 0.5f, gb_var_init_ = 0.3f;
 
         // sensor noise from datasheet
-        float accel_noise_var_ = SQ(400e-6 * GRAVITY) * 250; // (m/s^2)
+        float accel_noise_var_ = SQ(400e-6 * GRAVITY) * 2000; // (m/s^2)
         float accel_walk_var_ = SQ(0.003f); // (m/s^2 sqrt(s))^2
         float gyro_noise_var_ = 9.5192e-4; // (rad/s)^2   -> (0.005*pi/180 degs/s/ sqrt(Hz))^2 * 125 Hz) // increased by 3 orders of magnitude
         float gyro_walk_var_ = 4.3264e-10f; // (rad/s sqrt(s))^2 -> assuming 4.3 deg/sqrt(h) drift, uncertain estimate
-        float mag_meas_var_ =  2 * SQ(0.2f); // (uT)^2 -> 2 milli-Gauss std from datasheet
+        float mag_meas_var_ = 4*SQ(0.2f); // (uT)^2 -> 2 milli-Gauss std from datasheet
 
         // accel lpf for gravity fusion
         EmaLowPassFilter accel_meas_filter_;

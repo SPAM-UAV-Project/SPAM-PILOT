@@ -66,7 +66,7 @@ namespace sensors::encoder
         Serial.println("[Encoder]: Setting up timer");
         encoderTimer = timerBegin(1000000); // 1 MHz timer
         timerAttachInterrupt(encoderTimer, &onEncoderTimer);
-        timerAlarm(encoderTimer, 500, true, 0); // 2000 Hz alarm, auto-reload
+        timerAlarm(encoderTimer, 800, true, 0); //  alarm, auto-reload
         Serial.println("[Encoder]: Encoder initialized.");
     }
 

@@ -10,6 +10,8 @@ void StateManager::init() {
 }
 
 void StateManager::switchState(SystemState new_state) {
+    if (cur_state_ == new_state) return;
+    
     cur_state_ = new_state;
     Serial.printf("[StateManager] Switched to state: %d\n", static_cast<int>(cur_state_));
 }
@@ -76,7 +78,6 @@ void StateManager::stateManagerTask() {
         switch (cur_state_)
         {
         case SystemState::INITIALIZING:
-
 #ifdef MAVLINK_ENABLED
             // initialize mavlink
             //mavlink_comms_.registerTransport(&usb_transport_);
@@ -86,19 +87,19 @@ void StateManager::stateManagerTask() {
             mavlink_comms_.init();
 #endif // MAVLINK_ENABLED
 
-            radio_controller_.init();
-            if (!sd_logger_.init()) {
-                Serial.println("[StateManager] Warning: SD Logger init failed!");
-            }
-
             sensors::imu::initIMU();
             sensors::encoder::initEncoder();
             state_estimator_.init();
 
-            // initialize controllers
+            radio_controller_.init();
+            // // initialize controllers
             att_control_thread_.init();
             rate_control_thread_.init();
             control_allocator_.initRotor();
+
+            if (!sd_logger_.init()) {
+                Serial.println("[StateManager] Warning: SD Logger init failed!");
+            }
 
             switchState(SystemState::DISARMED);
             break;

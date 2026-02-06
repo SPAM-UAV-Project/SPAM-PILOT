@@ -9,7 +9,7 @@
 
 namespace gnc {
 
-void ESKF::fuseGravity(const ImuIntegratedMsg& imu_integrated_msg, const Eigen::Vector3f& accel_meas_filtered_, const Eigen::Matrix3f& measCov){
+void ESKF::fuseGravity(const ImuIntegratedMsg& imu_integrated_msg, const Eigen::Vector3f& accel_meas_filtered_, const float& R){
     Eigen::Quaternionf current_quat(x_.segment<4>(QUAT_ID));
     // normalize measurement to unit vector since we only care about direction
     Eigen::Vector3f accel_corrected = ((imu_integrated_msg.delta_vel / imu_integrated_msg.delta_vel_dt) - x_.segment<3>(AB_ID)).normalized();
@@ -31,7 +31,7 @@ void ESKF::fuseGravity(const ImuIntegratedMsg& imu_integrated_msg, const Eigen::
     H.block<3, 3>(0, dTHETA_ID) = getSkewSymmetric(gravity_pred);
 
     // fuse, correct measCov by dividing by gravity squared
-    Eigen::Matrix3f S = fuseMeasurement3D(innov, measCov / SQ(GRAVITY), H);
+    Eigen::Vector3f S = fuseAttitude3D(innov, R / SQ(GRAVITY), H);
 
     ekf_innovations_msg.timestamp = micros();
     ekf_innovations_msg.gravity_innov = innov;

@@ -26,7 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <Wire.h>
 
-#include "HMC5883L.hpp"
+#include "hmc5883l.hpp"
 
 bool HMC5883L::begin(TwoWire* wire)
 {

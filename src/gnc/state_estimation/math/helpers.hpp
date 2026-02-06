@@ -1,4 +1,4 @@
-#include "gnc/state_estimation/ESKF.hpp"
+#include "gnc/state_estimation/eskf.hpp"
 
 namespace gnc {
 

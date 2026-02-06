@@ -11,13 +11,14 @@ namespace cdh {
 
     void RadioController::init() 
     {
-        xTaskCreate(
+        xTaskCreatePinnedToCore(
             rcPollEntryTask,
             "RC Poll Task",
             4096,
             this,
             3,
-            nullptr
+            nullptr,
+            0
         );
     }
 
