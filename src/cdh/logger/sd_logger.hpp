@@ -5,6 +5,7 @@
 #include <SD.h>
 #include <SPI.h>
 #include <atomic>
+#include <algorithm>
 #include "pin_defs.hpp"
 
 // Message types and broker
@@ -26,9 +27,9 @@ namespace cdh {
 // Configuration
 // ============================================================================
 constexpr size_t SD_BUFFER_SIZE = 65536;        // 64KB ring buffer
-constexpr size_t SD_FLUSH_THRESHOLD = 16384;    // Flush at 25% full (16KB)
-constexpr uint32_t SD_LOG_PERIOD_MS = 2;     // 500Hz polling (2ms)
-constexpr uint32_t SD_WRITE_PERIOD_MS = 50;     // Check for flush every 50ms
+constexpr size_t SD_FLUSH_THRESHOLD = 16384;    // Flush at 16KB (larger chunks = better efficiency)
+constexpr uint32_t SD_LOG_PERIOD_MS = 2;        // 500Hz polling (2ms)
+constexpr uint32_t SD_WRITE_PERIOD_MS = 100;    // Writer checks at 10Hz
 constexpr uint32_t SD_SPI_FREQ = 20000000;      // 20MHz SPI
 
 // ============================================================================
@@ -110,9 +111,9 @@ struct __attribute__((packed)) LogImuIntegrated {
 struct __attribute__((packed)) LogEkfInnovations {
     uint64_t timestamp;
     float mag_innov[3];
-    float mag_innov_cov[9];  // 3x3 matrix row-major
+    float mag_innov_cov[3]; // diagonal covariance
     float gravity_innov[3];
-    float gravity_innov_cov[9];  // 3x3 matrix row-major
+    float gravity_innov_cov[3]; // diagonal covariance
 };  // 104 bytes
 
 // File header
@@ -233,9 +234,9 @@ private:
     }
 
     // Log helpers
-    void logImu();
-    void logEkf();
-    void logMotorForces();
+    bool logImu();
+    bool logEkf();
+    bool logMotorForces();
     void logAttSp();
     void logRateSp();
     void logTorqueSp();

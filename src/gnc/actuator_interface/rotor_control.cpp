@@ -1,5 +1,6 @@
 #include "rotor_control.hpp"
 #include "sensors/encoder/encoder.hpp"  // for atomic encoder angle
+// #include "timing/task_timing.hpp"
 
 // logic as described in "Flight Performance of a Swashplateless Micro Air Vehicle" by James Paulos and Mark Yim
 // https://ieeexplore.ieee.org/document/7139936
@@ -22,27 +23,16 @@ namespace gnc
     void ControlAllocator::initRotor()
     {
         instance_ = this;
-        
-        motor1_.begin();
-        motor2_.begin();
-        motor1_.sendThrottle(0);
-        motor2_.sendThrottle(0);
-
-        Serial.println("[Rotor Controller]: Initializing rotor control...");
-        for(int i = 0; i < 300; i++) {  // 3 seconds of zero throttle
-            delay(10);
-        }
 
         log_queue_ = xQueueCreate(50, sizeof(LogPacket));
 
-        xTaskCreatePinnedToCore(allocatorTaskEntry, "Control Allocator Task", 8192, this, configMAX_PRIORITIES - 1, &allocator_task_handle_, 1);
+        xTaskCreatePinnedToCore(allocatorTaskEntry, "Control Allocator Task", 8192, this, 6, &allocator_task_handle_, 1);
         xTaskCreate(loggingTaskEntry, "Logger", 4096, this, 1, &logging_task_handle_);
 
         // create timer
         Serial.println("[Rotor Controller]: Setting up rotor control timer...");
         rotor_control_timer_ = timerBegin(1000000); // 1 MHz timer
         timerAttachInterrupt(rotor_control_timer_, &onRotorControlTimerEntry);
-        timerAlarm(rotor_control_timer_, 1000, true, 0); // 1000 Hz alarm, auto-reload
         Serial.println("[Rotor Controller]: Rotor control initialized.");
     }
 
@@ -82,10 +72,27 @@ namespace gnc
 
         uint32_t count = 0;
 
+        // TaskTiming task_timer("RotorAlloc", 1000); // 1000us budget for 1kHz
+
+        // init motors
+        motor1_.begin();
+        motor2_.begin();
+        motor1_.sendThrottle(0);
+        motor2_.sendThrottle(0);
+
+        Serial.println("[Rotor Controller]: Initializing rotor control...");
+        for(int i = 0; i < 300; i++) {  // 3 seconds of zero throttle
+            vTaskDelay(pdMS_TO_TICKS(10));
+        }
+
+        // start the timer
+        timerAlarm(rotor_control_timer_, 1000, true, 0); // 1000 Hz alarm, auto-reload
+
         
         while (true)
         {
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+            // task_timer.startCycle();
             count++;
 
             // receive data
@@ -156,6 +163,11 @@ namespace gnc
 
             sendToDshot(motor1_output, motor1_);
             sendToDshot(motor2_output, motor2_);
+
+            // task_timer.endCycle();
+            // if (task_timer.getCycleCount() % 1000 == 0) {
+            //     task_timer.printStats();
+            // }
         }
     }
     

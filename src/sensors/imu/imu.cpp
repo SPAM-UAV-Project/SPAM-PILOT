@@ -14,7 +14,7 @@
 #include "filter/notch.hpp"
 #include "integrator/integrator.hpp"
 
-#include "timing/task_timing.hpp"
+// #include "timing/task_timing.hpp"
 
 namespace sensors::imu
 {
@@ -75,7 +75,7 @@ namespace sensors::imu
         mpu.setI2CBypassEnabled(true); // enable direct access to mag via i2c
         mpu.setI2CMasterModeEnabled(false);
         mpu.setSleepEnabled(false);
-        xTaskCreate(imuTask, "IMU Task", 8192, NULL, 4, &imuTaskHandle);
+        xTaskCreatePinnedToCore(imuTask, "IMU Task", 8192, NULL, 4, &imuTaskHandle, 0);
 
         delay(100);
 
@@ -114,9 +114,9 @@ namespace sensors::imu
         // setup notch filter
         Eigen::Vector3f notched_gyro = Eigen::Vector3f::Zero();
         Eigen::Vector3f notched_accel = Eigen::Vector3f::Zero();
-        float gyro_notch_freq = 55.0f;
+        float gyro_notch_freq = 60.0f;
         float gyro_notch_bw = 10.0f;
-        float accel_notch_freq = 55.0f;
+        float accel_notch_freq = 60.0f;
         float accel_notch_bw = 10.0f;
         NotchFilt gyro_notch_filter_;
         NotchFilt accel_notch_filter_;
@@ -131,15 +131,13 @@ namespace sensors::imu
         gyro_lp_filter_.setup(gyro_f_c, f_s);
         accel_lp_filter_.setup(accel_f_c, f_s);
 
-        // constexpr for optimization
-        const Eigen::Matrix3f IMU_ROT = IMU_TO_BODY_ROT * IMU_TO_FRD_ROT;
-        constexpr float accel_lsb_to_m_s2 = 9.81f / 2048.0f; // for FS = +/-4g
+        constexpr float accel_lsb_to_m_s2 = 9.81f / 2048.0f; // for FS = +/-16g
         constexpr float gyro_lsb_to_rad_s = DEG_TO_RAD / 65.5f;
 
         // timing for integration and pubs
         uint32_t last_timestamp_us = micros();
 
-        // TaskTiming task_timer("IMU Task", 1000);
+        // TaskTiming task_timer("IMU Task", 1000); // 1000us budget for 1kHz
 
         while (1){
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
@@ -151,21 +149,26 @@ namespace sensors::imu
             last_timestamp_us = current_timestamp_us;
 
             // read imu data
-            if (xSemaphoreTake(i2c_mutex, portMAX_DELAY) == pdTRUE) {
+            if (xSemaphoreTake(i2c_mutex, pdMS_TO_TICKS(5)) == pdTRUE) {
                 mpu.getMotion6(&imu_raw[0], &imu_raw[1], &imu_raw[2], &imu_raw[3], &imu_raw[4], &imu_raw[5]);
                 xSemaphoreGive(i2c_mutex);
             }
 
+            // Scale and rotate IMU data into FRD body frame
+            // Combined rotation IMU_TO_BODY_ROT * IMU_TO_FRD_ROT maps [x,y,z] -> [-z,-y,-x]
+            float ax_raw = imu_raw[0] * accel_lsb_to_m_s2;
+            float ay_raw = imu_raw[1] * accel_lsb_to_m_s2;
+            float az_raw = imu_raw[2] * accel_lsb_to_m_s2;
+            float gx_raw = imu_raw[3] * gyro_lsb_to_rad_s;
+            float gy_raw = imu_raw[4] * gyro_lsb_to_rad_s;
+            float gz_raw = imu_raw[5] * gyro_lsb_to_rad_s;
+
+            // inline rotation update
+            // imu_msg.gyro = IMU_TO_BODY_ROT * IMU_TO_FRD_ROT * imu_msg.gyro;
+            // imu_msg.accel = IMU_TO_BODY_ROT * IMU_TO_FRD_ROT * imu_msg.accel;
             imu_msg.timestamp = current_timestamp_us;
-            imu_msg.accel << imu_raw[0] * accel_lsb_to_m_s2,
-                             imu_raw[1] * accel_lsb_to_m_s2,
-                             imu_raw[2] * accel_lsb_to_m_s2;
-            imu_msg.gyro << imu_raw[3] * gyro_lsb_to_rad_s,
-                            imu_raw[4] * gyro_lsb_to_rad_s,
-                            imu_raw[5] * gyro_lsb_to_rad_s;
-            // rotate into FRD
-            imu_msg.gyro = IMU_ROT * imu_msg.gyro;
-            imu_msg.accel = IMU_ROT * imu_msg.accel;
+            imu_msg.accel << -az_raw, -ay_raw, -ax_raw;
+            imu_msg.gyro << -gz_raw, -gy_raw, -gx_raw;
 
             // filter accel and gyro with notch, then low pass -> these go to controllers only
             gyro_notch_filter_.apply3d(imu_msg.gyro.data(), notched_gyro.data());
@@ -192,7 +195,6 @@ namespace sensors::imu
 
             // task_timer.endCycle();
 
-            // // if 1 second has passed, print
             // if (task_timer.getCycleCount() % 1000 == 0) {
             //     task_timer.printStats();
             // }
@@ -204,25 +206,30 @@ namespace sensors::imu
         int16_t mag_raw[3] = {0};
         int16_t last_mag_raw[3] = {0};
         ImuMagMsg mag_msg;
-        const Eigen::Matrix3f MAG_ROT = MAG_TO_BODY_ROT * MAG_TO_FRD_ROT;
 
-        const TickType_t delay = pdMS_TO_TICKS(5); // 200 Hz
+        const TickType_t delay = pdMS_TO_TICKS(10); // 100 Hz
         TickType_t last_wake_time = xTaskGetTickCount();
 
+        // TaskTiming task_timer("Mag Task", 10000); // 10000us budget for 100Hz
+
         // need to somehow clear the ready bit of the HMC5883L status register to get a data ready signal.
-        // currently just polls at 200 hz and does a comparison to see if data has changed.
+        // currently just polls at 100 hz and does a comparison to see if data has changed.
         while (1){
-            if (xSemaphoreTake(i2c_mutex, portMAX_DELAY) == pdTRUE) {
+            // task_timer.startCycle();
+                if (xSemaphoreTake(i2c_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
                 mag.readRawBurst(&mag_raw[0], &mag_raw[1], &mag_raw[2]);
                 // only publish if there is new data (poor mans data ready pin)
                 if (mag_raw[0] != last_mag_raw[0] || mag_raw[1] != last_mag_raw[1] || mag_raw[2] != last_mag_raw[2]) {
                     mag_msg.timestamp = micros();
-                    mag_msg.mag << mag_raw[0] * MAG_LSB_2_uT, 
-                                mag_raw[1] * MAG_LSB_2_uT,
-                                mag_raw[2] * MAG_LSB_2_uT;
-
-                    // rotate into FRD
-                    mag_msg.mag = MAG_ROT * (mag_msg.mag - mag_bias);
+                    
+                    // scale and apply bias
+                    float mx = mag_raw[0] * MAG_LSB_2_uT - mag_bias.x();
+                    float my = mag_raw[1] * MAG_LSB_2_uT - mag_bias.y();
+                    float mz = mag_raw[2] * MAG_LSB_2_uT - mag_bias.z();
+                    
+                    // inline rotation: [x,y,z] -> [z,x,y]
+                    // mag_msg.mag =  MAG_TO_BODY_ROT * MAG_TO_FRD_ROT * (mag_msg.mag - mag_bias);
+                    mag_msg.mag << mz, mx, my;
                     mag_pub.push(mag_msg);
                 
                     last_mag_raw[0] = mag_raw[0];
@@ -234,6 +241,10 @@ namespace sensors::imu
                 };
                 xSemaphoreGive(i2c_mutex);
             }
+            // task_timer.endCycle();
+            // if (task_timer.getCycleCount() % 100 == 0) {
+            //     task_timer.printStats();
+            // }
             vTaskDelayUntil(&last_wake_time, delay);
         }
     }

@@ -1,4 +1,5 @@
 #include "gnc/att_control_thread/att_control_thread.hpp"
+// #include "timing/task_timing.hpp"
 
 namespace gnc {
 
@@ -33,7 +34,10 @@ namespace gnc {
         const TickType_t xFrequency = pdMS_TO_TICKS(static_cast<TickType_t>(dt_ms_));
         TickType_t xLastWakeTime = xTaskGetTickCount();
 
+        // TaskTiming task_timer("AttControl", 20000); // 20000us budget for 50Hz
+
         while (true) {
+            // task_timer.startCycle();
             // fetch data
             vehicle_state_sub_.pull_if_new(vehicle_state_msg_);
             rc_command_sub_.pull_if_new(rc_command_msg_);
@@ -89,6 +93,10 @@ namespace gnc {
             rate_setpoint_pub_.push(rate_setpoint_msg_);
 
             // Serial.printf("rate setpoint: %.3f, %.3f, %.3f\r\n", rate_setpoint_.x(), rate_setpoint_.y(), rate_setpoint_.z());
+            // task_timer.endCycle();
+            // if (task_timer.getCycleCount() % 50 == 0) {
+            //     task_timer.printStats();
+            // }
             vTaskDelayUntil(&xLastWakeTime, xFrequency);
         }
     }

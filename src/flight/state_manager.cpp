@@ -1,11 +1,12 @@
 #include "state_manager.hpp"
+// #include "timing/task_timing.hpp"
 
 namespace flight {
 
 StateManager::StateManager() {}
 
 void StateManager::init() {
-    xTaskCreate(stateManagerTaskEntry, "StateManagerTask", 8192, this, 2, nullptr);
+    xTaskCreate(stateManagerTaskEntry, "StateManagerTask", 8192, this, 3, nullptr);
     Serial.println("[StateManager] State Manager task started.");
 }
 
@@ -67,7 +68,10 @@ void StateManager::stateManagerTask() {
     // advertise services
     state_switcher_srv_.advertise<StateManager, &StateManager::onSwitchState>(this);
 
-    while (true) {
+    // TaskTiming task_timer("StateManager", 20000); // 20000us budget for 50Hz
+
+    while (true) {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+        // task_timer.startCycle();
 
         // publish state
         vehicle_state_msg_.timestamp = micros();
@@ -78,28 +82,31 @@ void StateManager::stateManagerTask() {
         switch (cur_state_)
         {
         case SystemState::INITIALIZING:
-#ifdef MAVLINK_ENABLED
+            sensors::imu::initIMU();
+            sensors::encoder::initEncoder();
+
+            delay(200);
+            state_estimator_.init();
+
+            radio_controller_.init();
+
+            if (!sd_logger_.init()) {
+                Serial.println("[StateManager] Warning: SD Logger init failed!");
+            }
+
+            // // // initialize controllers
+            att_control_thread_.init();
+            rate_control_thread_.init();
+            control_allocator_.initRotor();
+
             // initialize mavlink
+#ifdef MAVLINK_ENABLED
             //mavlink_comms_.registerTransport(&usb_transport_);
 #ifdef WIFI_TRANSPORT
             mavlink_comms_.registerTransport(&wifi_transport_);
 #endif // WIFI_TRANSPORT
             mavlink_comms_.init();
 #endif // MAVLINK_ENABLED
-
-            sensors::imu::initIMU();
-            sensors::encoder::initEncoder();
-            state_estimator_.init();
-
-            radio_controller_.init();
-            // // initialize controllers
-            att_control_thread_.init();
-            rate_control_thread_.init();
-            control_allocator_.initRotor();
-
-            if (!sd_logger_.init()) {
-                Serial.println("[StateManager] Warning: SD Logger init failed!");
-            }
 
             switchState(SystemState::DISARMED);
             break;
@@ -125,6 +132,10 @@ void StateManager::stateManagerTask() {
 
         processRcCommands();
 
+        // task_timer.endCycle();
+        // if (task_timer.getCycleCount() % 50 == 0) {
+        //     task_timer.printStats();
+        // }
         vTaskDelayUntil(&last_wake_time, pdMS_TO_TICKS(20)); // 50 Hz
     }
 }

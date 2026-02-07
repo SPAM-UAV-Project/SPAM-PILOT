@@ -8,6 +8,7 @@
 #include <Arduino.h>
 #include "pin_defs.hpp"
 #include "msgs/EncoderMsg.hpp"
+// #include "timing/task_timing.hpp"
 
 namespace sensors::encoder
 {
@@ -59,7 +60,7 @@ namespace sensors::encoder
         }
         
         // start freertos tasks
-        xTaskCreatePinnedToCore(encoderTask, "EncoderTask", 4096, NULL, 4, &encoderTaskHandle, 1);
+        xTaskCreatePinnedToCore(encoderTask, "EncoderTask", 4096, NULL, 6, &encoderTaskHandle, 1);
         delay(100);
 
         // create timer to trigger tasks
@@ -95,8 +96,11 @@ namespace sensors::encoder
         // angle message
         EncoderMsg encoder_msg;
 
+        // TaskTiming task_timer("Encoder", 800); // 800us budget for 1250Hz
+
         while(1){
-            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);            
+            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+            // task_timer.startCycle();            
             // read angle
             float angle_rad = magEnc.readRawAngle() * AS5600_RAW_TO_RAD;
             
@@ -119,6 +123,11 @@ namespace sensors::encoder
             encoder_msg.angle_rad = angle_rad;
             encoder_msg.timestamp = micros();
             encoder_pub.push(encoder_msg);
+
+            // task_timer.endCycle();
+            // if (task_timer.getCycleCount() % 1250 == 0) {
+            //     task_timer.printStats();
+            // }
         }
     }    
 }

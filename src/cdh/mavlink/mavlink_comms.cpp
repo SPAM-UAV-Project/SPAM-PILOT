@@ -5,6 +5,7 @@
 
 #include "mavlink_comms.hpp"
 #include <cstdarg>
+// #include "timing/task_timing.hpp"
 
 namespace cdh::mavlink {
 
@@ -65,8 +66,15 @@ bool MavlinkComms::isGcsConnected() const {
 
 void MavlinkComms::rxTask() {
     TickType_t last_wake = xTaskGetTickCount();
+    // TaskTiming task_timer("MavRx", 10000); // 10000us budget for 100Hz
+    
     while (true) {
+        // task_timer.startCycle();
         processIncoming();
+        // task_timer.endCycle();
+        // if (task_timer.getCycleCount() % 100 == 0) {
+        //     task_timer.printStats();
+        // }
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(10));
     }
 }

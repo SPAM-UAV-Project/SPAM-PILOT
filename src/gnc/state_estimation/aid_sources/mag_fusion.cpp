@@ -46,7 +46,7 @@ void ESKF::fuseMag(const Eigen::Vector3f& magMeas, const float& R)
 #endif
 
     H.block<3, 3>(0, dTHETA_ID) = getSkewSymmetric(mag_pred); // unrolled takes a 3x3 matrix
-    Eigen::Vector3f S = fuseAttitude3D(innov, RAD_TO_DEG, H);
+    Eigen::Vector3f S = fuseAttitude3D(innov, R, H);
 
     ekf_innovations_msg.timestamp = micros();
     ekf_innovations_msg.mag_innov = innov;

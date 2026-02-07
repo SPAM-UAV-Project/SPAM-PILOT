@@ -45,7 +45,7 @@ namespace gnc {
 
         // rate controller output is in normalized torque
         float rate_kp_[3] = {3.6517f, 3.6517f, 2.4f};
-        float rate_ki_[3] = {0.15976f, 0.15976f, 1.5f};
+        float rate_ki_[3] = {0.15976f, 0.15976f, 0.5f};
         float rate_kd_[3] = {0.f, 0.f, 0.f};
         float rate_out_max_ = 100.0f;
         float rate_integ_clamp_ = 50.0f;
