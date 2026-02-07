@@ -98,7 +98,7 @@ namespace gnc {
 
         rpy_setpoint_.x() = rc_command_msg_.roll * max_man_angle_rad_;
         rpy_setpoint_.y() = rc_command_msg_.pitch * max_man_angle_rad_;
-        rpy_setpoint_.z() += rc_command_msg_.yaw * yaw_rate_max_radps_ * (dt_ms_ / 1000.0f);
+        rpy_setpoint_.z() += rc_command_msg_.yaw * yaw_rate_max_radps_ * dt_ms_ * 0.001f;
 
         wrapAngle(rpy_setpoint_.z());
 

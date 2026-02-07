@@ -10,7 +10,7 @@
 
 #define I2C_ADDRESS_AS5600 0x36
 
-#define AS5600_RAW_TO_RAD (2.0f * M_PI / 4096.0f)
+constexpr float AS5600_RAW_TO_RAD  = (2.0f * M_PI / 4096.0f);
 
 namespace sensors::encoder
 {
