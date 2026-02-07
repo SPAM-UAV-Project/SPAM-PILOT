@@ -150,11 +150,12 @@ Eigen::Vector3f ESKF::fuseAttitude3D(const Vector3f& innov,
         // Compute Innovation Variance (S)
         Eigen::Vector3f S_all;
         gnc::ComputeAttitudeInnovVar<float>(P_, H, R, &S_all);
-        float s_scalar = S_all(axis_idx);
-        S_log(axis_idx) = s_scalar;
+        // invert s to avoid division by 15 elements
+        float s_scalar_inv = 1.0f / S_all(axis_idx);
+        S_log(axis_idx) = S_all(axis_idx);
 
         // find kalman gain for this axis
-        Eigen::Matrix<float, dSTATE_SIZE, 1> K = P_ * H.row(axis_idx).transpose() / s_scalar;
+        Eigen::Matrix<float, dSTATE_SIZE, 1> K = P_ * H.row(axis_idx).transpose() * s_scalar_inv;
 
         // inject correction
         Eigen::Matrix<float, dSTATE_SIZE, 1> correction = K * innov(axis_idx);

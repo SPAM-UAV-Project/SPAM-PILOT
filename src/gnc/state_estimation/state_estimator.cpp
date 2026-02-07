@@ -8,7 +8,7 @@
 #include "msgs/ImuIntegrated.hpp"
 #include "msgs/ImuMagMsg.hpp"
 
-#include "timing/task_timing.hpp"
+// #include "timing/task_timing.hpp"
 
 namespace gnc {
 
@@ -40,6 +40,8 @@ void StateEstimator::getInitialStates()
             mag_sum.y() += imu_mag_msg_.mag.y();
             mag_sum.z() += imu_mag_msg_.mag.z();
             imu_mag_samples++;
+            // Serial.printf("[StateEstimator] Collecting Mag Sample %d: [%.4f, %.4f, %.4f] uT\n", (int)imu_mag_samples,
+            //               imu_mag_msg_.mag.x(), imu_mag_msg_.mag.y(), imu_mag_msg_.mag.z());
         }
     }
     Eigen::Vector3f avg_gyro = gyro_sum / imu_hr_samples;
@@ -80,14 +82,7 @@ void StateEstimator::getInitialStates()
     // initialize accel meas filter
     accel_meas_filter_.setTimeConst(0.05f, dt_);
     accel_meas_filtered_ = accel_meas_filter_.apply3d(avg_accel);
-    
-}
 
-void StateEstimator::init() 
-{
-    getInitialStates();
-
-    // initialize eskf class 
     eskf_.initStates(Eigen::Vector3f::Zero(),
                      Eigen::Vector3f::Zero(),
                      init_quat_,
@@ -97,6 +92,12 @@ void StateEstimator::init()
     eskf_.initCovariances(I_3 * pos_var_init_, I_3 * vel_var_init_,
                           I_3 * attitude_var_init_, I_3 * ab_var_init_,
                           I_3 * gb_var_init_);
+    
+}
+
+void StateEstimator::init() 
+{
+    // initialize eskf class 
     eskf_.initSensorNoise(accel_noise_var_, accel_walk_var_,
                           gyro_noise_var_, gyro_walk_var_);
 
@@ -108,7 +109,7 @@ void StateEstimator::init()
         this,
         3,
         &stateEstimatorTaskHandle_,
-        1
+        0
     );
 
     Serial.println("[StateEstimator] State Estimator Task Started.");
@@ -123,6 +124,8 @@ void StateEstimator::stateEstimatorTask(void *pvParameters)
     uint32_t loop_counter = 0;
 
     // TaskTiming task_timer("StateEstimator", 4000); // 4000 us budget for 250 hz
+
+    getInitialStates();
 
     while (true) {
         // start timer

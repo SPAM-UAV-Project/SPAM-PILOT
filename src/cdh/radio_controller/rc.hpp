@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include "CRSFforArduino.hpp"
 #include "msgs/RcCommandMsg.hpp"
+#include "msgs/EkfStatesMsg.hpp"
 
 namespace cdh {
 
@@ -52,10 +53,10 @@ namespace cdh {
 
         static RadioController* instance_;
         HardwareSerial crsfSerial_ = HardwareSerial(1);
-        CRSFforArduino crsf_{&crsfSerial_};
+        static constexpr int crsf_rxPin = 14;
+        static constexpr int crsf_txPin = 13;
+        CRSFforArduino crsf_{&crsfSerial_, crsf_rxPin, crsf_txPin};
         int crsf_baud_ = 420000;
-        int crsf_rxPin = 14;
-        int crsf_txPin = 13;
         bool crsf_invert = false;
 
         // publisher
@@ -63,6 +64,12 @@ namespace cdh {
         Topic<RcCommandMsg>::Publisher rcCommandPub_;
         RcCommandMsg rcCommandMsg_;
         RcCommandMsg failsafeCommandMsg_; // initialized to defaults
+
+        // Attitude telemetry
+        Topic<EkfStatesMsg>::Subscriber ekf_sub_;
+        EkfStatesMsg ekf_msg_;
+        uint32_t last_telemetry_time_ = 0;
+        static constexpr uint32_t TELEMETRY_PERIOD_MS = 100; // 10Hz
     };
 
 }

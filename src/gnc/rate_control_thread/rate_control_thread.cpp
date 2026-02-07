@@ -1,4 +1,5 @@
 #include "gnc/rate_control_thread/rate_control_thread.hpp"
+// #include "timing/task_timing.hpp"
 
 namespace gnc {
 
@@ -25,7 +26,10 @@ namespace gnc {
         const TickType_t xFrequency = pdMS_TO_TICKS(static_cast<TickType_t>(dt_ms_));
         TickType_t xLastWakeTime = xTaskGetTickCount();
 
+        // TaskTiming task_timer("RateControl", 20000); // 20000us budget for 50Hz
+
         while (true) {
+            // task_timer.startCycle();
             // fetch data
             vehicle_state_sub_.pull_if_new(vehicle_state_msg_);
 
@@ -48,6 +52,10 @@ namespace gnc {
             torque_setpoint_msg_.setpoint = torque_setpoint_;
             torque_setpoint_pub_.push(torque_setpoint_msg_);
 
+            // task_timer.endCycle();
+            // if (task_timer.getCycleCount() % 50 == 0) {
+            //     task_timer.printStats();
+            // }
             vTaskDelayUntil(&xLastWakeTime, xFrequency);
         }
     }

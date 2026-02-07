@@ -1,4 +1,5 @@
 #include "sd_logger.hpp"
+// #include "timing/task_timing.hpp"
 
 namespace cdh {
 
@@ -26,13 +27,11 @@ bool SdLogger::init() {
     current_file_num_ = findNextFileNumber();
     Serial.println("[SdLogger] SD initialized.");
     
-    // Start logger task (high priority for consistent 500Hz polling)
-    xTaskCreate(loggerTaskEntry, "SdLogger", 4096, this, 2, &logger_task_handle_);
+
+    xTaskCreatePinnedToCore(loggerTaskEntry, "SdLogger", 4096, this, 2, &logger_task_handle_, 1);
+    xTaskCreatePinnedToCore(writerTaskEntry, "SdWriter", 8192, this, 2, &writer_task_handle_, 1);
     
-    // Start writer task (low priority - just drains buffer)
-    xTaskCreate(writerTaskEntry, "SdWriter", 4096, this, 1, &writer_task_handle_);
-    
-    Serial.println("[SdLogger] Tasks started.");
+    Serial.println("[SdLogger] Tasks started on Core 1.");
     return true;
 }
 
@@ -95,13 +94,20 @@ void SdLogger::stopSession() {
     // Stop logging new data
     logging_active_.store(false, std::memory_order_release);
     
-    // drain buffer
+    // Give writer task a moment to finish current write
+    vTaskDelay(pdMS_TO_TICKS(100));
+    
+    // Drain remaining buffer
+    size_t remaining = availableForRead();
+    Serial.printf("[SdLogger] Stopping... Buffer remaining: %u bytes\n", remaining);
     drainBuffer();
     
     // Close file
     if (log_file_) {
         log_file_.flush();
+        size_t file_size = log_file_.size();
         log_file_.close();
+        Serial.printf("[SdLogger] File closed. Size: %u bytes\n", file_size);
     }
     
     Serial.printf("[SdLogger] Stopped. Drops: %lu\n", drop_count_.load());
@@ -181,22 +187,57 @@ void SdLogger::drainBuffer() {
     size_t readable = availableForRead();
     if (readable == 0) return;
     
-    constexpr size_t CHUNK_SIZE = 512;
+    constexpr size_t CHUNK_SIZE = 4096;
     uint8_t chunk[CHUNK_SIZE];
     
     size_t t = tail_.load(std::memory_order_relaxed);
     size_t written = 0;
     
     while (written < readable) {
-        size_t to_write = min(CHUNK_SIZE, readable - written);
+        size_t to_write = std::min(CHUNK_SIZE, readable - written);
         
+        // Copy to chunk buffer first (safe to do since we own the tail)
+        size_t current_tail = t;
         for (size_t i = 0; i < to_write; i++) {
-            chunk[i] = buffer_[t];
-            t = (t + 1) % SD_BUFFER_SIZE;
+            chunk[i] = buffer_[current_tail];
+            current_tail = (current_tail + 1) % SD_BUFFER_SIZE;
         }
         
-        log_file_.write(chunk, to_write);
-        written += to_write;
+        // Write chunk to SD
+        size_t bytes_written = log_file_.write(chunk, to_write);
+        
+        if (bytes_written != to_write) {
+            Serial.printf("[SdLogger] Write failed! Expected %u, wrote %u\n", to_write, bytes_written);
+            
+            // Critical failure - try to recover by reopening file
+            if (bytes_written == 0) {
+                Serial.println("[SdLogger] Write failed 0 bytes. Reopening...");
+                // vTaskDelay(pdMS_TO_TICKS(50)); // Delay removed as requested
+                
+                log_file_.close();
+                
+                // Try to reopen in APPEND mode
+                char filename[20];
+                snprintf(filename, sizeof(filename), "/LOG_%04u.bin", current_file_num_ - 1);
+                log_file_ = SD.open(filename, FILE_APPEND);
+                
+                if (log_file_) {
+                    Serial.println("[SdLogger] Reopened file successfully");
+                } else {
+                    Serial.println("[SdLogger] Failed to reopen file!");
+                    // If reopening fails, stop logging to prevent infinite error loop
+                    logging_active_.store(false, std::memory_order_release);
+                }
+                break;
+            }
+        }
+        
+        written += bytes_written;
+        
+        // Advance tail by amount actually written
+        // If partial write occurred, we only advance by that amount
+        // Recalculate t based on original t + bytes_written
+        t = (t + bytes_written) % SD_BUFFER_SIZE;
         tail_.store(t, std::memory_order_release);
     }
     
@@ -209,22 +250,36 @@ void SdLogger::drainBuffer() {
 
 void SdLogger::loggerTask() {
     TickType_t last_wake = xTaskGetTickCount();
+    uint32_t log_count = 0;
+    uint32_t imu_count = 0, ekf_count = 0, motor_count = 0;  // Debug counters
     
     while (true) {
         if (logging_active_.load(std::memory_order_acquire)) {
             // Poll all subscribers and log new data
-            logImu();
-            logEkf();
-            logMotorForces();
+            if (logImu()) imu_count++;
+            if (logEkf()) ekf_count++;
+            if (logMotorForces()) motor_count++;
             logAttSp();
             logRateSp();
             logTorqueSp();
             logEncoder();
             logImuIntegrated();
             logEkfInnovations();
+            
+            // Debug: print stats every second (500 cycles at 500Hz)
+            log_count++;
+            if (log_count % 500 == 0) {
+                // Serial.printf("[SdLogger] Polls: %lu, IMU: %lu, EKF: %lu, Motor: %lu, Buf: %u\n", 
+                //    log_count, imu_count, ekf_count, motor_count, availableForRead());
+            }
+        } else {
+            log_count = 0;
+            imu_count = 0;
+            ekf_count = 0;
+            motor_count = 0;
         }
         
-        vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(SD_LOG_PERIOD_MS));  // 500Hz
+        vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(SD_LOG_PERIOD_MS));
     }
 }
 
@@ -234,13 +289,19 @@ void SdLogger::loggerTask() {
 
 void SdLogger::writerTask() {
     TickType_t last_wake = xTaskGetTickCount();
+    // TaskTiming task_timer("SdWriter", 50000); // 50000us budget for 20Hz
     
     while (true) {
+        // task_timer.startCycle();
         // Only write when logging and threshold reached
         if (logging_active_.load(std::memory_order_acquire) &&
             availableForRead() >= SD_FLUSH_THRESHOLD) {
             drainBuffer();
         }
+        // task_timer.endCycle();
+        // if (task_timer.getCycleCount() % 20 == 0) {
+        //     task_timer.printStats();
+        // }
         
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(SD_WRITE_PERIOD_MS));
     }
@@ -250,8 +311,8 @@ void SdLogger::writerTask() {
 // Log Helpers - Convert messages to binary and write to buffer
 // ============================================================================
 
-void SdLogger::logImu() {
-    if (!imu_sub_.pull_if_new(imu_msg_)) return;
+bool SdLogger::logImu() {
+    if (!imu_sub_.pull_if_new(imu_msg_)) return false;
     
     LogHeader hdr = { 
         .msg_type = static_cast<uint8_t>(LogMsgType::IMU),
@@ -275,10 +336,11 @@ void SdLogger::logImu() {
     payload.gyro_filtered[2] = imu_msg_.gyro_filtered.z();
     
     writeLogEntry(hdr, &payload, sizeof(payload));
+    return true;
 }
 
-void SdLogger::logEkf() {
-    if (!ekf_sub_.pull_if_new(ekf_msg_)) return;
+bool SdLogger::logEkf() {
+    if (!ekf_sub_.pull_if_new(ekf_msg_)) return false;
     
     LogHeader hdr = {
         .msg_type = static_cast<uint8_t>(LogMsgType::EKF),
@@ -300,10 +362,11 @@ void SdLogger::logEkf() {
     payload.attitude[3] = ekf_msg_.attitude.z();
     
     writeLogEntry(hdr, &payload, sizeof(payload));
+    return true;
 }
 
-void SdLogger::logMotorForces() {
-    if (!motor_sub_.pull_if_new(motor_msg_)) return;
+bool SdLogger::logMotorForces() {
+    if (!motor_sub_.pull_if_new(motor_msg_)) return false;
     
     LogHeader hdr = {
         .msg_type = static_cast<uint8_t>(LogMsgType::MOTOR_FORCES),
@@ -323,6 +386,7 @@ void SdLogger::logMotorForces() {
     payload.actuators[3] = motor_msg_.actuator_setpoints.w();
     
     writeLogEntry(hdr, &payload, sizeof(payload));
+    return true;
 }
 
 void SdLogger::logAttSp() {
