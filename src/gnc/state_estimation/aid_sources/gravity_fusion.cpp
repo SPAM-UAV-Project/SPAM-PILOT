@@ -7,6 +7,12 @@
 #include "gnc/state_estimation/math/helpers.hpp"
 #include "msgs/ImuIntegrated.hpp"
 
+namespace {
+    constexpr float _gbound_l = SQ(GRAVITY * 0.9f);
+    constexpr float _gbound_h = SQ(GRAVITY * 1.1f);
+    constexpr float _g_invsq = 1.0f / SQ(GRAVITY);
+}
+
 namespace gnc {
 
 void ESKF::fuseGravity(const ImuIntegratedMsg& imu_integrated_msg, const Eigen::Vector3f& accel_meas_filtered_, const float& R){
@@ -17,7 +23,7 @@ void ESKF::fuseGravity(const ImuIntegratedMsg& imu_integrated_msg, const Eigen::
     // if filtered accel measurement is too small or too large, skip aiding (vehicle is accelerating)
     // filter here since accel data is probably way too noisy for this application
     // Serial.println("Gravity fusion: accel norm = " + String(accel_meas_filtered_.norm()));
-    if (accel_meas_filtered_.squaredNorm() < SQ(GRAVITY * 0.9f) || accel_meas_filtered_.squaredNorm() > SQ(GRAVITY * 1.1f)) {
+    if (accel_meas_filtered_.squaredNorm() < _gbound_l || accel_meas_filtered_.squaredNorm() > _gbound_h) {
         return;
     }
 
@@ -31,7 +37,7 @@ void ESKF::fuseGravity(const ImuIntegratedMsg& imu_integrated_msg, const Eigen::
     H.block<3, 3>(0, dTHETA_ID) = getSkewSymmetric(gravity_pred);
 
     // fuse, correct measCov by dividing by gravity squared
-    Eigen::Vector3f S = fuseAttitude3D(innov, R / SQ(GRAVITY), H);
+    Eigen::Vector3f S = fuseAttitude3D(innov, R * _g_invsq, H);
 
     ekf_innovations_msg.timestamp = micros();
     ekf_innovations_msg.gravity_innov = innov;

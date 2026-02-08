@@ -180,7 +180,7 @@ namespace gnc
         // ensure throttle_fraction is within [0.0, 1.0]
         throttle_fraction = std::clamp(throttle_fraction, 0.0f, 1.0f);
         // convert to DShot value (48 to 2047 for throttle)
-        uint16_t dshot_value = static_cast<uint16_t>(48 + throttle_fraction * (2047 - 48));
+        uint16_t dshot_value = 48 + static_cast<uint16_t>(throttle_fraction * 1999);
         motor.sendThrottle(dshot_value);
     }
 

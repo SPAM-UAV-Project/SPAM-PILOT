@@ -8,6 +8,7 @@ public:
     ~NotchFilt() = default;
 
     void setup(double notch_freq, double bandwidth, double sample_freq);
+    void update(float notch_freq, float bandwidth_half, float sample_freq_ang_inv);
     void apply3d(const float input[3], float output[3]);
 
 private:
