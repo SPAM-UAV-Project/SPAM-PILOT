@@ -106,7 +106,10 @@ namespace gnc
                 body_commands << thrust_sp_msg_.setpoint, torque_sp_msg_.setpoint.x(), torque_sp_msg_.setpoint.y(), torque_sp_msg_.setpoint.z();
                 // map to motor forces
                 motor_forces.noalias() = allocation_matrix * body_commands;
-                
+
+                // for testing
+                // anything under 0.02 N is probably just noise for now, set pitch and roll to 0
+
                 // convert to bx, by using top motor force only
                 // dont do anything if motor forces are low
                 if (motor_forces(2) > 1) { // 1 N threshold

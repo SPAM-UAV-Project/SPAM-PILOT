@@ -225,11 +225,12 @@ namespace sensors::imu
                     // scale and apply bias
                     float mx = mag_raw[0] * MAG_LSB_2_uT - mag_bias.x();
                     float my = mag_raw[1] * MAG_LSB_2_uT - mag_bias.y();
-                    float mz = mag_raw[2] * MAG_LSB_2_uT - mag_bias.z();
-                    
+                    float mz = mag_raw[2] * MAG_LSB_2_uT- mag_bias.z();
+
                     // inline rotation: [x,y,z] -> [z,x,y]
                     // mag_msg.mag =  MAG_TO_BODY_ROT * MAG_TO_FRD_ROT * (mag_msg.mag - mag_bias);
                     mag_msg.mag << mz, mx, my;
+                    // mag_msg.mag << mx, my, mz;
                     mag_pub.push(mag_msg);
                 
                     last_mag_raw[0] = mag_raw[0];
@@ -237,8 +238,29 @@ namespace sensors::imu
                     last_mag_raw[2] = mag_raw[2];
 
                     // for mag cal
-                    // Serial.printf("%lf\t%lf\t%lf\n", mag_msg.mag[0], mag_msg.mag[1], mag_msg.mag[2]);
-                };
+
+                    // // Print the sensor data
+                    // Serial.print("Raw:");
+                    // Serial.print((int)0);
+                    // Serial.print(',');
+                    // Serial.print((int)0);
+                    // Serial.print(',');
+                    // Serial.print((int)0);
+                    // Serial.print(',');
+                    // Serial.print((int)0);
+                    // Serial.print(',');
+                    // Serial.print((int)0);
+                    // Serial.print(',');
+                    // Serial.print((int)0);
+                    // Serial.print(',');
+                    // Serial.print((int)(mx*10));
+                    // Serial.print(',');
+                    // Serial.print((int)(my*10));
+                    // Serial.print(',');
+                    // Serial.print((int)(mz*10));
+                    // Serial.println();
+                    // Serial.printf("Mag: [%.2f, %.2f, %.2f] uT\n", mag_msg.mag.x(), mag_msg.mag.y(), mag_msg.mag.z());
+                }
                 xSemaphoreGive(i2c_mutex);
             }
             // task_timer.endCycle();

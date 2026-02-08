@@ -265,6 +265,7 @@ void SdLogger::loggerTask() {
             logEncoder();
             logImuIntegrated();
             logEkfInnovations();
+            logMag();
             
             // Debug: print stats every second (500 cycles at 500Hz)
             log_count++;
@@ -510,6 +511,24 @@ void SdLogger::logEkfInnovations() {
     payload.gravity_innov_cov[1] = ekf_innovations_msg_.gravity_innov_cov(1);
     payload.gravity_innov_cov[2] = ekf_innovations_msg_.gravity_innov_cov(2);
 
+    writeLogEntry(hdr, &payload, sizeof(payload));
+}
+
+void SdLogger::logMag() {
+    if (!mag_sub_.pull_if_new(mag_msg_)) return;
+    
+    LogHeader hdr = {
+        .msg_type = static_cast<uint8_t>(LogMsgType::MAG),
+        .payload_size = sizeof(LogMag),
+        .reserved = 0
+    };
+    
+    LogMag payload;
+    payload.timestamp = mag_msg_.timestamp;
+    payload.mag[0] = mag_msg_.mag.x();
+    payload.mag[1] = mag_msg_.mag.y();
+    payload.mag[2] = mag_msg_.mag.z();
+    
     writeLogEntry(hdr, &payload, sizeof(payload));
 }
 

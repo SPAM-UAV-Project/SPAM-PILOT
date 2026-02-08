@@ -8,7 +8,7 @@
 #include "msgs/ImuIntegrated.hpp"
 #include "msgs/ImuMagMsg.hpp"
 
-// #include "timing/task_timing.hpp"
+#include "timing/task_timing.hpp"
 
 namespace gnc {
 
@@ -123,13 +123,18 @@ void StateEstimator::stateEstimatorTask(void *pvParameters)
     long current_time = micros();
     uint32_t loop_counter = 0;
 
-    // TaskTiming task_timer("StateEstimator", 4000); // 4000 us budget for 250 hz
+    TaskTiming task_timer("StateEstimator", 4000); // 4000 us budget for 250 hz
+
+    // gravity fusion temp vars
+    Eigen::Vector3f delta_vel_meas_sum = Eigen::Vector3f::Zero();
+    float delta_vel_dt_sum = 0.f;
+    constexpr uint32_t grav_fusion_rate = 5;
 
     getInitialStates();
 
     while (true) {
         // start timer
-        // task_timer.startCycle();
+        task_timer.startCycle();
 
         // obtain sensor data
         if (imu_integrated_sub_.pull_if_new(imu_integrated_msg_)) {
@@ -143,8 +148,14 @@ void StateEstimator::stateEstimatorTask(void *pvParameters)
 
             // fuse gravity 
             accel_meas_filtered_ = accel_meas_filter_.apply3d(imu_integrated_msg_.delta_vel / imu_integrated_msg_.delta_vel_dt);
-            if (loop_counter % 5 == 0) { // fuse gravity at 50 Hz to save computation
-                eskf_.fuseGravity(imu_integrated_msg_, accel_meas_filtered_, accel_noise_var_);
+            delta_vel_dt_sum += imu_integrated_msg_.delta_vel_dt;
+            delta_vel_meas_sum += imu_integrated_msg_.delta_vel;
+            if (loop_counter % grav_fusion_rate == 0) { // fuse gravity at 50 Hz to save computation
+                if (delta_vel_dt_sum > 0) {
+                    eskf_.fuseGravity(delta_vel_meas_sum / delta_vel_dt_sum, accel_meas_filtered_, accel_noise_var_ / grav_fusion_rate);
+                    delta_vel_meas_sum.setZero();
+                    delta_vel_dt_sum = 0.f;
+                }
             }
             loop_counter++;
         }
@@ -166,6 +177,8 @@ void StateEstimator::stateEstimatorTask(void *pvParameters)
         ekf_states_msg_.gyro_bias = eskf_.getStateVariable(GB_ID, 3);
         ekf_states_pub_.push(ekf_states_msg_);
 
+        // Serial.printf("gyro biases: [%.4f, %.4f, %.4f] rad/s\n", ekf_states_msg_.gyro_bias.x(), ekf_states_msg_.gyro_bias.y(), ekf_states_msg_.gyro_bias.z());
+        // Serial.printf("accel_biases: [%.4f, %.4f, %.4f] m/s^2\n", ekf_states_msg_.accel_bias.x(), ekf_states_msg_.accel_bias.y(), ekf_states_msg_.accel_bias.z());
         // print timing info
         // task_timer.endCycle();
 

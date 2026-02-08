@@ -15,10 +15,10 @@ namespace {
 
 namespace gnc {
 
-void ESKF::fuseGravity(const ImuIntegratedMsg& imu_integrated_msg, const Eigen::Vector3f& accel_meas_filtered_, const float& R){
+void ESKF::fuseGravity(const Vector3f& accel_meas, const Eigen::Vector3f& accel_meas_filtered_, const float& R){
     Eigen::Quaternionf current_quat(x_.segment<4>(QUAT_ID));
     // normalize measurement to unit vector since we only care about direction
-    Eigen::Vector3f accel_corrected = ((imu_integrated_msg.delta_vel / imu_integrated_msg.delta_vel_dt) - x_.segment<3>(AB_ID)).normalized();
+    Eigen::Vector3f accel_corrected = ((accel_meas - x_.segment<3>(AB_ID)).normalized());
 
     // if filtered accel measurement is too small or too large, skip aiding (vehicle is accelerating)
     // filter here since accel data is probably way too noisy for this application

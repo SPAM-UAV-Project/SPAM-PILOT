@@ -19,6 +19,7 @@
 #include "msgs/EncoderMsg.hpp"
 #include "msgs/ImuIntegrated.hpp"
 #include "msgs/EkfInnovations.hpp"
+#include "msgs/ImuMagMsg.hpp"
 
 namespace cdh {
 
@@ -46,7 +47,8 @@ enum class LogMsgType : uint8_t {
     TORQUE_SP = 5,
     ENCODER = 6,
     IMU_INTEGRATED = 7,
-    EKF_INNOVATIONS = 8
+    EKF_INNOVATIONS = 8,
+    MAG = 9
 };
 
 // Binary log entry header (4 bytes)
@@ -114,7 +116,12 @@ struct __attribute__((packed)) LogEkfInnovations {
     float mag_innov_cov[3]; // diagonal covariance
     float gravity_innov[3];
     float gravity_innov_cov[3]; // diagonal covariance
-};  // 104 bytes
+};  // 56 bytes
+
+struct __attribute__((packed)) LogMag {
+    uint64_t timestamp;
+    float mag[3];
+};  // 20 bytes
 
 // File header
 struct __attribute__((packed)) LogFileHeader {
@@ -199,6 +206,7 @@ private:
     Topic<EncoderMsg>::Subscriber encoder_sub_;
     Topic<ImuIntegratedMsg>::Subscriber imu_integrated_sub_;
     Topic<EkfInnovationsMsg>::Subscriber ekf_innovations_sub_;
+    Topic<ImuMagMsg>::Subscriber mag_sub_;
 
     // Message buffers for subscribers
     ImuHighRateMsg imu_msg_;
@@ -210,6 +218,7 @@ private:
     EncoderMsg encoder_msg_;
     ImuIntegratedMsg imu_integrated_msg_;
     EkfInnovationsMsg ekf_innovations_msg_;
+    ImuMagMsg mag_msg_;
 
     TaskHandle_t logger_task_handle_ = nullptr;
     TaskHandle_t writer_task_handle_ = nullptr;
@@ -243,6 +252,7 @@ private:
     void logEncoder();
     void logImuIntegrated();
     void logEkfInnovations();
+    void logMag();
 };
 
 } // namespace cdh

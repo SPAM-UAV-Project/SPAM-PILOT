@@ -151,6 +151,9 @@ Eigen::Vector3f ESKF::fuseAttitude3D(const Vector3f& innov,
         Eigen::Vector3f S_all;
         gnc::ComputeAttitudeInnovVar<float>(P_, H, R, &S_all);
         // invert s to avoid division by 15 elements
+        if (S_all(axis_idx) < 1e-6f) {
+            S_all(axis_idx) = 1e-6f;
+        }
         float s_scalar_inv = 1.0f / S_all(axis_idx);
         S_log(axis_idx) = S_all(axis_idx);
 
@@ -175,7 +178,7 @@ Eigen::Vector3f ESKF::fuseAttitude3D(const Vector3f& innov,
         PH_row = P_ * H.row(axis_idx).transpose();; // recompute PH_row after unstabilized update
         for (unsigned i = 0; i < dSTATE_SIZE; i++) {
             for (unsigned j = 0; j <= i; j++) {
-                P_(i, j) = P_(i, j) - (PH_row(i) + K(i) * R) * K(j); 
+                P_(i, j) = P_(i, j) + (-PH_row(i) + K(i) * R) * K(j); 
                 P_(j, i) = P_(i, j);
             }
         }

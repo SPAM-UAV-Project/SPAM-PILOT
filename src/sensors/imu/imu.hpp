@@ -18,7 +18,7 @@ namespace sensors::imu
     // mag hard iron bias (uT)
     inline Eigen::Vector3f gyro_bias = {0.0f, 0.0f, 0.0f};
     inline Eigen::Vector3f accel_bias = {0.0f, 0.0f, 0.0f};
-    inline Eigen::Vector3f mag_bias = {10.234636f, -9.875420f, 1.167783f};
+    inline Eigen::Vector3f mag_bias = {6.87f, -9.09f, -2.70};
 
     // gyro and accel transformation to FRD
     const Eigen::Matrix3f IMU_TO_FRD_ROT = (Eigen::Matrix3f() << 

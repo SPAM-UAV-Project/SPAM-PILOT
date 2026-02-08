@@ -55,7 +55,7 @@ public:
                          const float gyro_noise_var, const float gyro_walk_var);
     void predictStates(const ImuIntegratedMsg& imu_msg);
     void fuseMag(const Eigen::Vector3f& magMeas, const float& magMeasCov);
-    void fuseGravity(const ImuIntegratedMsg& imu_integrated_msg, const Eigen::Vector3f& accel_filtered, const float& measCov);
+    void fuseGravity(const Eigen::Vector3f& imu_integrated_msg, const Eigen::Vector3f& accel_filtered, const float& measCov);
 
     Eigen::VectorXf getStateVariable(int id, int length) {
         return x_.segment(id, length);
