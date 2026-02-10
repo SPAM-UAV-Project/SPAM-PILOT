@@ -177,6 +177,8 @@ namespace sensors::imu
             gyro_lp_filter_.apply3d(notched_gyro.data(), imu_msg.gyro_filtered.data());
             accel_lp_filter_.apply3d(notched_accel.data(), imu_msg.accel_filtered.data());
 
+            // update notch filter values based on 
+
             imu_pub.push(imu_msg);    
 
             // integrate at 250hz for ekf prediction

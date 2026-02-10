@@ -58,7 +58,16 @@ void StateManager::processRcCommands()
 
     // if switch is low at least once after boot, we can allow arming (to prevent startup arming) this is not working right now, probably will implement if low for at least 1 second
     if (!arm_requested) {
+        
         armable_ = true;
+    }
+
+    // process mode commands
+    if (cur_state_ != SystemState::ARMED && cur_state_ != SystemState::ARMED_FLYING) {
+        if (rc_command_sub_msg_.flight_mode != cur_flight_mode_) {
+            cur_flight_mode_ = rc_command_sub_msg_.flight_mode;
+            Serial.printf("[StateManager] Flight mode switched to: %d\n", static_cast<int>(cur_flight_mode_));
+        }
     }
 }
 

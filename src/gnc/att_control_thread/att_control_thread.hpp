@@ -47,7 +47,7 @@ namespace gnc {
 
         // yaw control from the RC
         float yaw_ff_gain_ = 1.0f;
-        float yaw_rate_max_radps_ = 30.0f * (M_PI / 180.0f); // rad/s
+        float yaw_rate_max_radps_ = 40.0f * (M_PI / 180.0f); // rad/s
 
         // max manual pitch roll angle
         float max_man_angle_rad_ = 25.0f * (M_PI / 180.0f); // radians
@@ -57,13 +57,17 @@ namespace gnc {
         float att_kp_[3] = {1.0f, 1.0f, 1.0f};
         float att_ki_[3] = {0.f, 0.f, 0.f};
         float att_kd_[3] = {0.f, 0.f, 0.f};
-        float att_out_max_ = 100.0f * (M_PI / 180.0f);
+        float att_out_max_ = 100.0f * (M_PI / 180.0f); // max rate setpoint
         float att_integ_clamp_ = 0.5f;
         float att_alpha_d_[3] = {0.0f, 0.0f, 0.0f};
         float dt_ms_ = 4.0f; // 250 Hz
         Eigen::Vector3f rate_setpoint_;
         AttitudeController att_controller_;
         float max_manual_throttle_force = -20.0f; // Newtons
+
+
+        // rate setpoint
+        float max_manual_rate_radps_ = 1.0f; //rad/s
     };
 
 }

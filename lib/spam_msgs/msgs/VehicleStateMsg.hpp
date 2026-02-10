@@ -15,6 +15,7 @@ enum class SystemState
 
 enum class FlightMode
 {
+    RATE,
     STABILIZED,
     ALT_HOLD,
     POS_HOLD

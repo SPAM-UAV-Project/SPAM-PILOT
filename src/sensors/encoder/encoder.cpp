@@ -8,7 +8,7 @@
 #include <Arduino.h>
 #include "pin_defs.hpp"
 #include "msgs/EncoderMsg.hpp"
-// #include "timing/task_timing.hpp"
+#include "timing/task_timing.hpp"
 
 namespace sensors::encoder
 {
@@ -96,7 +96,7 @@ namespace sensors::encoder
         // angle message
         EncoderMsg encoder_msg;
 
-        // TaskTiming task_timer("Encoder", 800); // 800us budget for 1250Hz
+        TaskTiming task_timer("Encoder", 800); // 800us budget for 1250Hz
 
         while(1){
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
@@ -107,7 +107,7 @@ namespace sensors::encoder
             // store in atomic for low jitter access
             atomic_enc_angle_rad.store(angle_rad, std::memory_order_relaxed);
 
-            // compute angular velocity (don't really need at this stage)
+            // compute angular velocity for dynamic notch filter
             // current_time = micros();
             // float delta_time_s = (current_time - last_time) / 1000000.0f;
             // float delta_angle = angle_rad - last_angle;
@@ -120,9 +120,9 @@ namespace sensors::encoder
             // last_angle = angle_rad; 
             // last_time = current_time;
 
-            encoder_msg.angle_rad = angle_rad;
-            encoder_msg.timestamp = micros();
-            encoder_pub.push(encoder_msg);
+            // encoder_msg.angle_rad = angle_rad;
+            // encoder_msg.timestamp = micros();
+            // encoder_pub.push(encoder_msg);
 
             // task_timer.endCycle();
             // if (task_timer.getCycleCount() % 1250 == 0) {

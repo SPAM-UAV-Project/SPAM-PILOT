@@ -26,7 +26,7 @@ namespace gnc {
         const TickType_t xFrequency = pdMS_TO_TICKS(static_cast<TickType_t>(dt_ms_));
         TickType_t xLastWakeTime = xTaskGetTickCount();
 
-        // TaskTiming task_timer("RateControl", 20000); // 20000us budget for 50Hz
+        // TaskTiming task_timer("RateControl", 1000); // 1000us budget for 1kHz
 
         while (true) {
             // task_timer.startCycle();
@@ -44,7 +44,7 @@ namespace gnc {
             rate_setpoint_sub_.pull_if_new(rate_setpoint_msg_);
             ekf_states_sub_.pull_if_new(ekf_states_msg_);
             imu_highrate_sub_.pull_if_new(imu_highrate_msg_);
-            rc_command_sub_.pull_if_new(rc_command_msg_);
+            rc_command_sub_.pull_if_new(rc_command_msg_);            
 
             // pass filtered gyro into controller
             torque_setpoint_ = inertia_matrix_.asDiagonal() * rate_controller_.run(rate_setpoint_msg_.setpoint, imu_highrate_msg_.gyro_filtered - ekf_states_msg_.gyro_bias);
@@ -53,7 +53,7 @@ namespace gnc {
             torque_setpoint_pub_.push(torque_setpoint_msg_);
 
             // task_timer.endCycle();
-            // if (task_timer.getCycleCount() % 50 == 0) {
+            // if (task_timer.getCycleCount() % 1000 == 0) {
             //     task_timer.printStats();
             // }
             vTaskDelayUntil(&xLastWakeTime, xFrequency);

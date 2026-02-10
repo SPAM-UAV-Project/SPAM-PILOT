@@ -48,9 +48,18 @@ namespace cdh {
             rcCommandMsg_.pitch = -pitch_; // invert pitch axis
             rcCommandMsg_.yaw = yaw_;
             rcCommandMsg_.throttle = throttle_;
-            rcCommandMsg_.arm_switch = (rcChannels->value[4] > 1500);
-            rcCommandMsg_.emergency_stop = (rcChannels->value[5] > 1500);
+            rcCommandMsg_.arm_switch = (crsf_.rcToUs(crsf_.getChannel(5)) > 1500);
+            rcCommandMsg_.emergency_stop = (crsf_.rcToUs(crsf_.getChannel(6)) > 1500);
+            rcCommandMsg_.flight_mode = (crsf_.rcToUs(crsf_.getChannel(7)) > 1800) ? FlightMode::RATE : FlightMode::STABILIZED;
             rcCommandPub_.push(rcCommandMsg_);
+
+            // print all channels raw
+            // Serial.print("Received RC Channels: ");
+            // for (int i = 0; i < rcChannelCount; i++) {
+            //     Serial.print(crsf_.rcToUs(crsf_.getChannel(i)));
+            //     Serial.print(" ");
+            // }
+            // Serial.println();
         }
     }
 

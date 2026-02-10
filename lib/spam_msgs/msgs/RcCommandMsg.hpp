@@ -2,6 +2,7 @@
 #define RC_COMMAND_MSG_HPP
 
 #include "msg_broker.hpp"
+#include "msgs/VehicleStateMsg.hpp"
 
 struct RcCommandMsg
 {
@@ -12,6 +13,7 @@ struct RcCommandMsg
     float throttle = 0.0f; // 0 to 1
     bool arm_switch = false;
     bool emergency_stop = true;
+    FlightMode flight_mode = FlightMode::STABILIZED;
 };
 
 #endif // RC_COMMAND_MSG_HPP

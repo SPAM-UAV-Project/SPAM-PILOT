@@ -16,6 +16,7 @@ void ESKF::fuseMag(const Eigen::Vector3f& magMeas, const float& R)
 
     // Jacob. of measurement model -> H = H_x X_dx, where X_dx is the jacobian of state to error state
     Eigen::Matrix<float, 3, dSTATE_SIZE> H = Eigen::Matrix<float, 3, dSTATE_SIZE>::Zero();
+    H.block<3, 3>(0, dTHETA_ID) = getSkewSymmetric(mag_pred);
 
     // Eigen::Matrix<float, 3, 4> H_x;
     // Eigen::Vector3f dh_dq_w = 2*(current_quat.w()*init_mag_nav_ + current_quat.vec().cross(init_mag_nav_));
@@ -45,7 +46,6 @@ void ESKF::fuseMag(const Eigen::Vector3f& magMeas, const float& R)
     print3DUpdate(magMeas, mag_pred, innov, current_quat);
 #endif
 
-    H.block<3, 3>(0, dTHETA_ID) = getSkewSymmetric(mag_pred); // unrolled takes a 3x3 matrix
     Eigen::Vector3f S = fuseAttitude3D(innov, R, H);
 
     ekf_innovations_msg.timestamp = micros();

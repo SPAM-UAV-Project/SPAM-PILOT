@@ -61,6 +61,23 @@ namespace gnc {
             // choose setpoints based on flight mode
             switch (vehicle_state_msg_.flight_mode)
             {
+            case FlightMode::RATE:
+                // rate bypasses attitude controller - map rates directly from rc inputs
+                rate_setpoint_.x() = rc_command_msg_.roll * max_manual_rate_radps_;
+                rate_setpoint_.y() = rc_command_msg_.pitch * max_manual_rate_radps_;
+                rate_setpoint_.z() = rc_command_msg_.yaw * yaw_rate_max_radps_;
+
+                // publish rate setpoint
+                rate_setpoint_msg_.timestamp = micros();
+                rate_setpoint_msg_.setpoint = rate_setpoint_;
+                rate_setpoint_pub_.push(rate_setpoint_msg_);
+
+                // thrust setpoint from rc (0 to 1 mapped to 0 to 10 N)
+                thrust_setpoint_msg_.setpoint = max_manual_throttle_force * rc_command_msg_.throttle; // map directly for now (adjust expo in rc controller)
+                thrust_setpoint_pub_.push(thrust_setpoint_msg_);
+
+                vTaskDelayUntil(&xLastWakeTime, xFrequency);
+                continue;
             case FlightMode::STABILIZED: // subs: rc_cmd | pubs: thrust + att sp
                 createAttSetpointFromRc(att_setpoint_msg_); // overwrite with rc command in manual modes
                 att_setpoint_msg_.timestamp = micros();
