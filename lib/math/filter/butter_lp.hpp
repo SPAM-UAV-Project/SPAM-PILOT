@@ -13,6 +13,7 @@ public:
 
     void setup(float cutoff_freq, float sample_freq);
     void apply3d(const float input[3], float output[3]);
+    void apply1d(float input, float& output);
 
 private:
     float b0_, b1_, b2_;

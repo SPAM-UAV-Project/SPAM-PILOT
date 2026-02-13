@@ -9,6 +9,7 @@
 #include "pin_defs.hpp"
 #include "msgs/EncoderMsg.hpp"
 #include "timing/task_timing.hpp"
+#include "filter/butter_lp.hpp"
 
 namespace sensors::encoder
 {
@@ -96,7 +97,12 @@ namespace sensors::encoder
         // angle message
         EncoderMsg encoder_msg;
 
-        TaskTiming task_timer("Encoder", 800); // 800us budget for 1250Hz
+        // timing stuff
+        // TaskTiming task_timer("Encoder", 800); // 800us budget for 1250Hz
+
+        // filter 
+        ButterLowPassFilt ang_vel_filt;
+        ang_vel_filt.setup(15.0f, 1250.0f);
 
         while(1){
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
@@ -108,25 +114,30 @@ namespace sensors::encoder
             atomic_enc_angle_rad.store(angle_rad, std::memory_order_relaxed);
 
             // compute angular velocity for dynamic notch filter
-            // current_time = micros();
-            // float delta_time_s = (current_time - last_time) / 1000000.0f;
-            // float delta_angle = angle_rad - last_angle;
-            // if (delta_angle > M_PI) {
-            //     delta_angle -= 2.0f * M_PI;
-            // } else if (delta_angle < -M_PI) {
-            //     delta_angle += 2.0f * M_PI;
-            // }
-            // encoder_msg.angular_velocity_rad_s = delta_angle / delta_time_s;
-            // last_angle = angle_rad; 
-            // last_time = current_time;
+            current_time = micros();
+            float delta_time_s = (current_time - last_time) * 1e-6f; // convert to seconds
+            float delta_angle = angle_rad - last_angle;
+            if (delta_angle > M_PI) {
+                delta_angle -= 2.0f * M_PI;
+            } else if (delta_angle < -M_PI) {
+                delta_angle += 2.0f * M_PI;
+            }
+            last_angle = angle_rad; 
+            last_time = current_time;
 
-            // encoder_msg.angle_rad = angle_rad;
-            // encoder_msg.timestamp = micros();
-            // encoder_pub.push(encoder_msg);
+            // apply filter after finding out cutoffs
+            ang_vel_filt.apply1d(delta_angle / delta_time_s, encoder_msg.angular_velocity_rad_s);
+            
+            // pack message
+            encoder_msg.timestamp = current_time;
+            // encoder_msg.angular_velocity_rad_s = delta_angle / delta_time_s;
+            encoder_msg.angle_rad = angle_rad;
+            encoder_pub.push(encoder_msg);
 
             // task_timer.endCycle();
             // if (task_timer.getCycleCount() % 1250 == 0) {
             //     task_timer.printStats();
+            //     Serial.println("Angular Velocity (rad/s): " + String(encoder_msg.angular_velocity_rad_s));
             // }
         }
     }    

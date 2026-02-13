@@ -50,11 +50,11 @@ namespace gnc {
         float yaw_rate_max_radps_ = 40.0f * (M_PI / 180.0f); // rad/s
 
         // max manual pitch roll angle
-        float max_man_angle_rad_ = 25.0f * (M_PI / 180.0f); // radians
+        float max_man_angle_rad_ = 20.0f * (M_PI / 180.0f); // radians
 
         // att controller output is in rad/s
         Eigen::Vector3f rpy_setpoint_{0.f, 0.f, NAN};
-        float att_kp_[3] = {1.0f, 1.0f, 1.0f};
+        float att_kp_[3] = {1.5f, 1.5f, 0.75f};
         float att_ki_[3] = {0.f, 0.f, 0.f};
         float att_kd_[3] = {0.f, 0.f, 0.f};
         float att_out_max_ = 100.0f * (M_PI / 180.0f); // max rate setpoint

@@ -45,16 +45,16 @@ namespace gnc
         float motor1_output = 0.0f;
         float motor2_output = 0.0f;
         float arming_throttle = 0.08f;
-        float max_blade_angle = 0.50f; // virtual angle
+        float max_blade_angle = 0.30f; // virtual angle
 
         // sysid vars
-        constexpr float TORQUE_COEFF_TOP = 0.0155f;
-        constexpr float TORQUE_COEFF_BOT = 0.0155f;
-        constexpr float THRUST_COEFF_TOP_INV = (1.0f / 10.9837f);
-        constexpr float THRUST_COEFF_BOT_INV = (1.0f / 9.3460f);
+        constexpr float TORQUE_COEFF_TOP = 0.016645f;
+        constexpr float TORQUE_COEFF_BOT = 0.015037f;
+        constexpr float THRUST_COEFF_TOP_INV = (1.0f / 15.3261f);
+        constexpr float THRUST_COEFF_BOT_INV = (1.0f / 8.3460f);
         constexpr float TOP_MOTOR_ARM = 0.18f;
-        constexpr float AMP_CUT_IN = 0.17f;
-        constexpr float PHASE_LAG = (30.0f * M_PI / 180.0f);
+        constexpr float AMP_CUT_IN = 0.075f;
+        constexpr float PHASE_LAG = (-60.0f * M_PI / 180.0f);
 
         Eigen::Vector4f motor_forces = Eigen::Vector4f::Zero(); // f1x, f1y, f1z, f2z
         Eigen::Vector4f body_commands = Eigen::Vector4f::Zero(); // thrust, torque_x, torque_y, torque_z
@@ -107,9 +107,6 @@ namespace gnc
                 // map to motor forces
                 motor_forces.noalias() = allocation_matrix * body_commands;
 
-                // for testing
-                // anything under 0.02 N is probably just noise for now, set pitch and roll to 0
-
                 // convert to bx, by using top motor force only
                 // dont do anything if motor forces are low
                 if (motor_forces(2) > 1) { // 1 N threshold
@@ -117,8 +114,8 @@ namespace gnc
                     blade_xy.x() = -motor_forces(1) / (motor_forces(2) + 1e-6f); // f1y / f1z = B_x
                     
                     // for swashplateless rotor control, we need to find an amplitude and a phase lag
-                    amplitude = AMP_CUT_IN + 2 * (sqrtf(SQ(blade_xy(0)) + SQ(blade_xy(1))));
-                    amplitude = std::min(amplitude, max_blade_angle); // cap amplitude to avoid excessive commands / vibrations
+                    amplitude = AMP_CUT_IN + (sqrtf(SQ(blade_xy(0)) + SQ(blade_xy(1))));
+                    amplitude = std::min(amplitude, max_blade_angle); // cap amplitude to avoid excessive commands
                     phase = atan2f(blade_xy(1), blade_xy(0));
                 } else {
                     blade_xy.setZero();
@@ -126,9 +123,9 @@ namespace gnc
                     phase = 0.0f;
                 }
 
-                // u = sqrt(thrust / k)
-                u_motor_sp(0) = sqrtf(std::max(0.0f, motor_forces(2) * THRUST_COEFF_TOP_INV));  // top motor
-                u_motor_sp(1) = sqrtf(std::max(0.0f, motor_forces(3) * THRUST_COEFF_BOT_INV));  // bottom motor
+                // u = sqrt(thrust / k) - mean motor command
+                u_motor_sp(0) = sqrtf(std::clamp(motor_forces(2) * THRUST_COEFF_TOP_INV, 0.0f, 0.6f));  // top motor // push top motor less to preserve control authority
+                u_motor_sp(1) = sqrtf(std::clamp(motor_forces(3) * THRUST_COEFF_BOT_INV, 0.0f, 0.8f));  // bottom motor
 
                 // publish for logging
                 LogPacket packet;

@@ -10,6 +10,7 @@
 #include "msgs/ImuHighRateMsg.hpp"
 #include "msgs/ImuIntegrated.hpp"
 #include "msgs/ImuMagMsg.hpp"
+#include "msgs/EncoderMsg.hpp"
 #include "filter/butter_lp.hpp"
 #include "filter/notch.hpp"
 #include "integrator/integrator.hpp"
@@ -22,6 +23,7 @@ namespace sensors::imu
 
     MPU6050 mpu(MPU6050_DEFAULT_ADDRESS, &imuI2C);
     HMC5883L mag;
+    Topic<EncoderMsg>::Subscriber encoder_sub;
     Topic<ImuHighRateMsg>::Publisher imu_pub;
     Topic<ImuIntegratedMsg>::Publisher imu_int_pub;
     Topic<ImuMagMsg>::Publisher mag_pub;
@@ -107,17 +109,21 @@ namespace sensors::imu
     {
         int16_t imu_raw[6] = {0};
         ImuHighRateMsg imu_msg;
+        EncoderMsg encoder_msg;
 
         constexpr float f_s = 1000.0f; // sample freq
+        constexpr float f_s_ang_inv = 2.0f * M_PI / f_s;
         constexpr uint32_t ekf_dt_thres_us = 3900; // threshold to reset integrator
 
         // setup notch filter
         Eigen::Vector3f notched_gyro = Eigen::Vector3f::Zero();
         Eigen::Vector3f notched_accel = Eigen::Vector3f::Zero();
         float gyro_notch_freq = 60.0f;
-        float gyro_notch_bw = 10.0f;
+        float gyro_notch_bw_half = 5.0f;
+        constexpr float gyro_notch_bw = 10.0f;
         float accel_notch_freq = 60.0f;
-        float accel_notch_bw = 10.0f;
+        float accel_notch_bw_half = 5.0f;
+        constexpr float accel_notch_bw = 10.0f;
         NotchFilt gyro_notch_filter_;
         NotchFilt accel_notch_filter_;
         gyro_notch_filter_.setup(gyro_notch_freq, gyro_notch_bw, f_s);
@@ -133,9 +139,11 @@ namespace sensors::imu
 
         constexpr float accel_lsb_to_m_s2 = 9.81f / 2048.0f; // for FS = +/-16g
         constexpr float gyro_lsb_to_rad_s = DEG_TO_RAD / 65.5f;
+        constexpr float rad_s_to_hz = 1.0f / (2.0f * M_PI);
 
         // timing for integration and pubs
         uint32_t last_timestamp_us = micros();
+        uint32_t last_notch_update_us = last_timestamp_us;
 
         // TaskTiming task_timer("IMU Task", 1000); // 1000us budget for 1kHz
 
@@ -144,55 +152,71 @@ namespace sensors::imu
 
             // task_timer.startCycle();
 
-            uint32_t current_timestamp_us = micros();
-            uint32_t dt_us = current_timestamp_us - last_timestamp_us;
-            last_timestamp_us = current_timestamp_us;
-
             // read imu data
-            if (xSemaphoreTake(i2c_mutex, pdMS_TO_TICKS(5)) == pdTRUE) {
+            if (xSemaphoreTake(i2c_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
                 mpu.getMotion6(&imu_raw[0], &imu_raw[1], &imu_raw[2], &imu_raw[3], &imu_raw[4], &imu_raw[5]);
                 xSemaphoreGive(i2c_mutex);
-            }
+                
+                uint32_t current_timestamp_us = micros();
+                uint32_t dt_us = current_timestamp_us - last_timestamp_us;
+                last_timestamp_us = current_timestamp_us;
 
-            // Scale and rotate IMU data into FRD body frame
-            // Combined rotation IMU_TO_BODY_ROT * IMU_TO_FRD_ROT maps [x,y,z] -> [-z,-y,-x]
-            float ax_raw = imu_raw[0] * accel_lsb_to_m_s2;
-            float ay_raw = imu_raw[1] * accel_lsb_to_m_s2;
-            float az_raw = imu_raw[2] * accel_lsb_to_m_s2;
-            float gx_raw = imu_raw[3] * gyro_lsb_to_rad_s;
-            float gy_raw = imu_raw[4] * gyro_lsb_to_rad_s;
-            float gz_raw = imu_raw[5] * gyro_lsb_to_rad_s;
+                // Scale and rotate IMU data into FRD body frame
+                // Combined rotation IMU_TO_BODY_ROT * IMU_TO_FRD_ROT maps [x,y,z] -> [-z,-y,-x]
+                float ax_raw = imu_raw[0] * accel_lsb_to_m_s2 - accel_bias.x();
+                float ay_raw = imu_raw[1] * accel_lsb_to_m_s2 - accel_bias.y();
+                float az_raw = imu_raw[2] * accel_lsb_to_m_s2 - accel_bias.z();
+                float gx_raw = imu_raw[3] * gyro_lsb_to_rad_s;
+                float gy_raw = imu_raw[4] * gyro_lsb_to_rad_s;
+                float gz_raw = imu_raw[5] * gyro_lsb_to_rad_s;
 
-            // inline rotation update
-            // imu_msg.gyro = IMU_TO_BODY_ROT * IMU_TO_FRD_ROT * imu_msg.gyro;
-            // imu_msg.accel = IMU_TO_BODY_ROT * IMU_TO_FRD_ROT * imu_msg.accel;
-            imu_msg.timestamp = current_timestamp_us;
-            imu_msg.accel << -az_raw, -ay_raw, -ax_raw;
-            imu_msg.gyro << -gz_raw, -gy_raw, -gx_raw;
+                // inline rotation update
+                // imu_msg.gyro = IMU_TO_BODY_ROT * IMU_TO_FRD_ROT * imu_msg.gyro;
+                // imu_msg.accel = IMU_TO_BODY_ROT * IMU_TO_FRD_ROT * imu_msg.accel;
+                imu_msg.timestamp = current_timestamp_us;
+                imu_msg.accel << -az_raw, -ay_raw, -ax_raw;
+                imu_msg.gyro << -gz_raw, -gy_raw, -gx_raw;
 
-            // filter accel and gyro with notch, then low pass -> these go to controllers only
-            gyro_notch_filter_.apply3d(imu_msg.gyro.data(), notched_gyro.data());
-            accel_notch_filter_.apply3d(imu_msg.accel.data(), notched_accel.data());
 
-            gyro_lp_filter_.apply3d(notched_gyro.data(), imu_msg.gyro_filtered.data());
-            accel_lp_filter_.apply3d(notched_accel.data(), imu_msg.accel_filtered.data());
+                // filter accel and gyro with notch, then low pass -> these go to controllers only
+                gyro_notch_filter_.apply3d(imu_msg.gyro.data(), notched_gyro.data());
+                accel_notch_filter_.apply3d(imu_msg.accel.data(), notched_accel.data());
 
-            // update notch filter values based on 
+                gyro_lp_filter_.apply3d(notched_gyro.data(), imu_msg.gyro_filtered.data());
+                accel_lp_filter_.apply3d(notched_accel.data(), imu_msg.accel_filtered.data());
 
-            imu_pub.push(imu_msg);    
+                // update notch filter values based on angular velocity
+                if (current_timestamp_us - last_notch_update_us > 20000) { // update every 20 ms (50 hz)
 
-            // integrate at 250hz for ekf prediction
-            accel_integrator.integrate3d(notched_accel, dt_us); // dt in us
-            gyro_integrator.integrate3d(notched_gyro, dt_us);
+                    // for accel calibration
+                    // Serial.printf("%lf\t%lf\t%lf\n", ax_raw, ay_raw, az_raw);
 
-            if (accel_integrator.isReady(ekf_dt_thres_us) && gyro_integrator.isReady(ekf_dt_thres_us)) {
-                ImuIntegratedMsg imu_int_msg;
-                imu_int_msg.timestamp = current_timestamp_us;
+                    if (encoder_sub.pull_if_new(encoder_msg)) {
+                        if (abs(encoder_msg.angular_velocity_rad_s) > 100.0f) { // only update if spinning fast enough to avoid notching at 0 hz
+                            float enc_hz = abs(encoder_msg.angular_velocity_rad_s) * rad_s_to_hz;
+                            gyro_notch_filter_.update(enc_hz, gyro_notch_bw_half, f_s_ang_inv);
+                            accel_notch_filter_.update(enc_hz, accel_notch_bw_half, f_s_ang_inv);
+                            last_notch_update_us = current_timestamp_us;
+                        }
+                    }
+                }
 
-                accel_integrator.getAndReset3d(imu_int_msg.delta_vel, imu_int_msg.delta_vel_dt);
-                gyro_integrator.getAndReset3d(imu_int_msg.delta_angle, imu_int_msg.delta_angle_dt);
+                imu_pub.push(imu_msg);    
 
-                imu_int_pub.push(imu_int_msg);
+                // integrate at 250hz for ekf prediction
+                accel_integrator.integrate3d(notched_accel, dt_us); // dt in us
+                gyro_integrator.integrate3d(notched_gyro, dt_us);
+
+                if (accel_integrator.isReady(ekf_dt_thres_us) && gyro_integrator.isReady(ekf_dt_thres_us)) {
+                    ImuIntegratedMsg imu_int_msg;
+                    imu_int_msg.timestamp = current_timestamp_us;
+
+                    accel_integrator.getAndReset3d(imu_int_msg.delta_vel, imu_int_msg.delta_vel_dt);
+                    gyro_integrator.getAndReset3d(imu_int_msg.delta_angle, imu_int_msg.delta_angle_dt);
+
+                    imu_int_pub.push(imu_int_msg);
+                }
+
             }
 
             // task_timer.endCycle();

@@ -16,8 +16,8 @@ namespace sensors::imu
     void magTask(void *pvParameters);
 
     // mag hard iron bias (uT)
+    inline Eigen::Vector3f accel_bias = {0.376029f, -0.227082f, -0.227082f};
     inline Eigen::Vector3f gyro_bias = {0.0f, 0.0f, 0.0f};
-    inline Eigen::Vector3f accel_bias = {0.0f, 0.0f, 0.0f};
     inline Eigen::Vector3f mag_bias = {6.87f, -9.09f, -2.70};
 
     // gyro and accel transformation to FRD

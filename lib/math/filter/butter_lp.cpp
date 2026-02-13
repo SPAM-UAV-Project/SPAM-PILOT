@@ -39,3 +39,14 @@ void ButterLowPassFilt::apply3d(const float input[3], float output[3])
         y_1[i] = output[i];
     }
 }
+
+void ButterLowPassFilt::apply1d(float input, float& output)
+{
+    // y[n] = b0*x[n] + b1*x[n-1] + b2*x[n-2] - a1*y[n-1] - a2*y[n-2]
+    output = b0_*input + b1_*x_1[0] + b2_*x_2[0] - a1_*y_1[0] - a2_*y_2[0];
+    // update states
+    x_2[0] = x_1[0];
+    x_1[0] = input;
+    y_2[0] = y_1[0];
+    y_1[0] = output;
+}

@@ -44,16 +44,16 @@ namespace gnc {
         TorqueSetpointMsg torque_setpoint_msg_;
 
         // rate controller output is in normalized torque
-        float rate_kp_[3] = {3.6517f, 3.6517f, 2.4f};
-        float rate_ki_[3] = {0.15976f, 0.15976f, 0.5f};
+        float rate_kp_[3] = {1.75f, 1.75f, 2.3f};
+        float rate_ki_[3] = {0.4682f, 0.4682f, 2.5f};
         float rate_kd_[3] = {0.f, 0.f, 0.f};
-        float rate_out_max_ = 100.0f;
-        float rate_integ_clamp_ = 50.0f;
+        float rate_out_max_ = 30.0f;
+        float rate_integ_clamp_ = 10.0f;
         float rate_alpha_d_[3] = {0.15f, 0.15f, 0.15f};
         float dt_ms_ = 1.0f;
         Eigen::Vector3f torque_setpoint_;
         RateController rate_controller_;
-        Eigen::Vector3f inertia_matrix_ = Eigen::Vector3f(0.004013f, 0.004013f, 0.0007873f); // to update from sysid
+        Eigen::Vector3f inertia_matrix_ = Eigen::Vector3f(0.004013f, 0.004013f, 0.0007873f); // diagonal inertia elements measured from a bifilar pendulum test
 
     };
 
