@@ -50,3 +50,13 @@ void ButterLowPassFilt::apply1d(float input, float& output)
     y_2[0] = y_1[0];
     y_1[0] = output;
 }
+
+void ButterLowPassFilt::reset()
+{
+    for (int i = 0; i < 3; ++i) {
+        x_1[i] = 0.0f;
+        x_2[i] = 0.0f;
+        y_1[i] = 0.0f;
+        y_2[i] = 0.0f;
+    }
+}

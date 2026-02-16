@@ -20,6 +20,7 @@
 #include "msgs/ImuIntegrated.hpp"
 #include "msgs/EkfInnovations.hpp"
 #include "msgs/ImuMagMsg.hpp"
+#include "msgs/AngAccelMsg.hpp"
 
 namespace cdh {
 
@@ -48,7 +49,8 @@ enum class LogMsgType : uint8_t {
     ENCODER = 6,
     IMU_INTEGRATED = 7,
     EKF_INNOVATIONS = 8,
-    MAG = 9
+    MAG = 9,
+    ANG_ACCEL = 10
 };
 
 // Binary log entry header (4 bytes)
@@ -94,7 +96,9 @@ struct __attribute__((packed)) LogRateSp {
 struct __attribute__((packed)) LogTorqueSp {
     uint64_t timestamp;
     float torque[3];
-};  // 20 bytes
+    float delayed_torque[3];
+    float indi_increment[3];
+};  // 44 bytes
 
 struct __attribute__((packed)) LogEncoder {
     uint64_t timestamp;
@@ -122,6 +126,12 @@ struct __attribute__((packed)) LogMag {
     uint64_t timestamp;
     float mag[3];
 };  // 20 bytes
+
+struct __attribute__((packed)) LogAngAccel {
+    uint64_t timestamp;
+    float ang_accel_raw[3];
+    float ang_accel_filtered[3];
+};  // 32 bytes
 
 // File header
 struct __attribute__((packed)) LogFileHeader {
@@ -207,6 +217,7 @@ private:
     Topic<ImuIntegratedMsg>::Subscriber imu_integrated_sub_;
     Topic<EkfInnovationsMsg>::Subscriber ekf_innovations_sub_;
     Topic<ImuMagMsg>::Subscriber mag_sub_;
+    Topic<AngAccelMsg>::Subscriber ang_accel_sub_;
 
     // Message buffers for subscribers
     ImuHighRateMsg imu_msg_;
@@ -219,6 +230,7 @@ private:
     ImuIntegratedMsg imu_integrated_msg_;
     EkfInnovationsMsg ekf_innovations_msg_;
     ImuMagMsg mag_msg_;
+    AngAccelMsg ang_accel_msg_;
 
     TaskHandle_t logger_task_handle_ = nullptr;
     TaskHandle_t writer_task_handle_ = nullptr;
@@ -253,6 +265,7 @@ private:
     void logImuIntegrated();
     void logEkfInnovations();
     void logMag();
+    void logAngAccel();
 };
 
 } // namespace cdh

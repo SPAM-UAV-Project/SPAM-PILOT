@@ -266,6 +266,7 @@ void SdLogger::loggerTask() {
             logImuIntegrated();
             logEkfInnovations();
             logMag();
+            logAngAccel();
             
             // Debug: print stats every second (500 cycles at 500Hz)
             log_count++;
@@ -442,6 +443,12 @@ void SdLogger::logTorqueSp() {
     payload.torque[0] = torque_sp_msg_.setpoint.x();
     payload.torque[1] = torque_sp_msg_.setpoint.y();
     payload.torque[2] = torque_sp_msg_.setpoint.z();
+    payload.delayed_torque[0] = torque_sp_msg_.delayed_torque.x();
+    payload.delayed_torque[1] = torque_sp_msg_.delayed_torque.y();
+    payload.delayed_torque[2] = torque_sp_msg_.delayed_torque.z();
+    payload.indi_increment[0] = torque_sp_msg_.indi_increment.x();
+    payload.indi_increment[1] = torque_sp_msg_.indi_increment.y();
+    payload.indi_increment[2] = torque_sp_msg_.indi_increment.z();
     
     writeLogEntry(hdr, &payload, sizeof(payload));
 }
@@ -528,6 +535,27 @@ void SdLogger::logMag() {
     payload.mag[0] = mag_msg_.mag.x();
     payload.mag[1] = mag_msg_.mag.y();
     payload.mag[2] = mag_msg_.mag.z();
+    
+    writeLogEntry(hdr, &payload, sizeof(payload));
+}
+
+void SdLogger::logAngAccel() {
+    if (!ang_accel_sub_.pull_if_new(ang_accel_msg_)) return;
+    
+    LogHeader hdr = {
+        .msg_type = static_cast<uint8_t>(LogMsgType::ANG_ACCEL),
+        .payload_size = sizeof(LogAngAccel),
+        .reserved = 0
+    };
+    
+    LogAngAccel payload;
+    payload.timestamp = ang_accel_msg_.timestamp;
+    payload.ang_accel_raw[0] = ang_accel_msg_.ang_accel_raw.x();
+    payload.ang_accel_raw[1] = ang_accel_msg_.ang_accel_raw.y();
+    payload.ang_accel_raw[2] = ang_accel_msg_.ang_accel_raw.z();
+    payload.ang_accel_filtered[0] = ang_accel_msg_.ang_accel_filtered.x();
+    payload.ang_accel_filtered[1] = ang_accel_msg_.ang_accel_filtered.y();
+    payload.ang_accel_filtered[2] = ang_accel_msg_.ang_accel_filtered.z();
     
     writeLogEntry(hdr, &payload, sizeof(payload));
 }

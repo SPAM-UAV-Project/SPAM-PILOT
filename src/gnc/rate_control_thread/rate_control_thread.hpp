@@ -1,7 +1,7 @@
 #ifndef RATE_CONTROL_THREAD_HPP
 #define RATE_CONTROL_THREAD_HPP
 
-#include "gnc/rate_control_thread/rate_control/rate_controller.hpp"
+#include "gnc/rate_control_thread/rate_control/indi_controller.hpp"
 #include "msgs/AttitudeSetpointMsg.hpp"
 #include "msgs/EkfStatesMsg.hpp"
 #include "msgs/TorqueSetpointMsg.hpp"
@@ -10,6 +10,7 @@
 #include "msgs/RcCommandMsg.hpp"
 #include "msgs/VehicleStateMsg.hpp"
 #include "msgs/RateSetpointMsg.hpp"
+#include "msgs/AngAccelMsg.hpp"
 
 namespace gnc {
 
@@ -35,6 +36,7 @@ namespace gnc {
         Topic<VehicleStateMsg>::Subscriber vehicle_state_sub_;
         Topic<RcCommandMsg>::Subscriber rc_command_sub_;
         Topic<TorqueSetpointMsg>::Publisher torque_setpoint_pub_;
+        Topic<AngAccelMsg>::Publisher ang_accel_pub_;
         
         RateSetpointMsg rate_setpoint_msg_;
         EkfStatesMsg ekf_states_msg_;
@@ -42,6 +44,7 @@ namespace gnc {
         VehicleStateMsg vehicle_state_msg_;
         RcCommandMsg rc_command_msg_;
         TorqueSetpointMsg torque_setpoint_msg_;
+        AngAccelMsg ang_accel_msg_;
 
         // rate controller output is in normalized torque
         float rate_kp_[3] = {1.75f, 1.75f, 1.75f};
@@ -51,9 +54,19 @@ namespace gnc {
         float rate_integ_clamp_ = 10.0f;
         float rate_alpha_d_[3] = {0.15f, 0.15f, 0.15f};
         float dt_ms_ = 1.0f;
-        Eigen::Vector3f torque_setpoint_;
-        RateController rate_controller_;
-        Eigen::Vector3f inertia_matrix_ = Eigen::Vector3f(0.004013f, 0.004013f, 0.0007873f); // diagonal inertia elements measured from a bifilar pendulum test
+
+        Eigen::Vector3f torque_setpoint_ = Eigen::Vector3f::Zero();
+        Eigen::Vector3f delayed_torque_setpoint_ = Eigen::Vector3f::Zero();
+
+        // RateController rate_controller_;
+        // Eigen::Vector3f inertia_matrix_ = Eigen::Vector3f(0.004013f, 0.004013f, 0.0007873f); // diagonal inertia elements measured from a bifilar pendulum test
+
+        Eigen::Matrix3f G_effectiveness_ = (Eigen::Matrix3f() << 
+            1000.0f, 0.0f, 0.0f,
+            0.0f, 1000.0f, 0.0f,
+            0.0f, 0.0f, 1750.0f).finished();
+        IndiController indi_controller_;
+        float virtual_p_gain_ = 1.2f;
 
     };
 
