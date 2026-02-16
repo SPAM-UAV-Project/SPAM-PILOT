@@ -47,7 +47,7 @@ namespace gnc {
         float accel_walk_var_ = SQ(0.003f); // (m/s^2 sqrt(s))^2
         float gyro_noise_var_ = 9.5192e-5; // (rad/s)^2   -> (0.005*pi/180 degs/s/ sqrt(Hz))^2 * 125 Hz) // increased by 3 orders of magnitude
         float gyro_walk_var_ = 4.3264e-10f; // (rad/s sqrt(s))^2 -> assuming 4.3 deg/sqrt(h) drift, uncertain estimate
-        float mag_meas_var_ = 100.0f * 1e6 * SQ(0.2f); // (uT)^2 -> 2 milli-Gauss std from datasheet
+        float mag_meas_var_ = 20.0f * SQ(0.2f); // (uT)^2 -> 2 milli-Gauss std from datasheet
 
         // accel lpf for gravity fusion
         EmaLowPassFilter accel_meas_filter_;

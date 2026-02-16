@@ -37,7 +37,7 @@ void ESKF::fuseGravity(const Vector3f& accel_meas, const Eigen::Vector3f& accel_
     H.block<3, 3>(0, dTHETA_ID) = getSkewSymmetric(gravity_pred);
 
     // fuse, correct measCov by dividing by gravity squared
-    Eigen::Vector3f S = fuseAttitude3D(innov, R * _g_invsq, H);
+    Eigen::Vector3f S = fuseAttitude3D(innov, R * _g_invsq, H, 10.0f); // no innov gate for now
 
     ekf_innovations_msg.timestamp = micros();
     ekf_innovations_msg.gravity_innov = innov;

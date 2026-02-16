@@ -7,16 +7,28 @@ void ESKF::fuseMag(const Eigen::Vector3f& magMeas, const float& R)
 {
     // predicted body mag measurement (measurement model)
     Eigen::Quaternionf current_quat(x_.segment<4>(QUAT_ID));
-    Eigen::Vector3f mag_pred = (current_quat.toRotationMatrix().transpose() * init_mag_nav_); // rotate initial mag to body frame
 
+    Eigen::Vector3f mag_meas_nav = current_quat.toRotationMatrix() * magMeas; // rotate measured mag to nav frame // current quat takes body to nav
+    
+    // this should be exactly north, if its off, then we have an innovation
+    float meas_yaw = atan2f(-mag_meas_nav.y(), mag_meas_nav.x()); // yaw measurement from north
+    
     // innovation
-    Eigen::Vector3f innov = magMeas - mag_pred;
+    float yaw_innov =  meas_yaw;
+    // wrap to [-pi, pi]
+    if (yaw_innov > M_PI) {
+        yaw_innov -= 2.0f * M_PI;
+    } else if (yaw_innov < -M_PI) {
+        yaw_innov += 2.0f * M_PI;
+    }
 
-    //print3DUpdate(magMeas, mag_pred, innov, current_quat);
+    Eigen::Vector3f innov = Eigen::Vector3f(0.0f, 0.0f, yaw_innov); // only yaw innovation, no roll/pitch info from mag
+
+    // print3DUpdate(mag_meas_nav, Eigen::Vector3f(meas_yaw, 0.0f, 0.0f), innov, current_quat);
 
     // Jacob. of measurement model -> H = H_x X_dx, where X_dx is the jacobian of state to error state
     Eigen::Matrix<float, 3, dSTATE_SIZE> H = Eigen::Matrix<float, 3, dSTATE_SIZE>::Zero();
-    H.block<3, 3>(0, dTHETA_ID) = getSkewSymmetric(mag_pred);
+    H(2, dTHETA_ID+2) = 1.0f; // only yaw is measured
 
     // Eigen::Matrix<float, 3, 4> H_x;
     // Eigen::Vector3f dh_dq_w = 2*(current_quat.w()*init_mag_nav_ + current_quat.vec().cross(init_mag_nav_));
@@ -46,7 +58,7 @@ void ESKF::fuseMag(const Eigen::Vector3f& magMeas, const float& R)
     print3DUpdate(magMeas, mag_pred, innov, current_quat);
 #endif
 
-    Eigen::Vector3f S = fuseAttitude3D(innov, R, H);
+    Eigen::Vector3f S = fuseAttitude3D(innov, R, H, 1.0f); // 1.0f innov gate (very bad noise in myhal arena (full of rebar!!))
 
     ekf_innovations_msg.timestamp = micros();
     ekf_innovations_msg.mag_innov = innov;

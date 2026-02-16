@@ -139,7 +139,7 @@ void ESKF::predictStates(const ImuIntegratedMsg& imu_msg)
 
 Eigen::Vector3f ESKF::fuseAttitude3D(const Vector3f& innov,
     const float& R,
-    const Matrix<float, 3, dSTATE_SIZE>& H
+    const Matrix<float, 3, dSTATE_SIZE>& H, float innov_gate_std
 )
 {    
     Eigen::Vector3f S_log;
@@ -156,6 +156,11 @@ Eigen::Vector3f ESKF::fuseAttitude3D(const Vector3f& innov,
         }
         float s_scalar_inv = 1.0f / S_all(axis_idx);
         S_log(axis_idx) = S_all(axis_idx);
+
+        if (std::abs(innov(axis_idx)) > innov_gate_std * std::sqrt(S_all(axis_idx))) {
+            // innovation is too large, likely a bad measurement, skip this axis
+            continue;
+        }
 
         // find kalman gain for this axis
         Eigen::Matrix<float, dSTATE_SIZE, 1> K = P_ * H.row(axis_idx).transpose() * s_scalar_inv;

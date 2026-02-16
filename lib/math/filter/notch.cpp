@@ -12,7 +12,7 @@ NotchFilt::NotchFilt()
 
 void NotchFilt::setup(double notch_freq, double bandwidth, double sample_freq)
 {
-    if (bandwidth <= 0.0 || sample_freq <= 0.0) {
+    if (bandwidth <= 0.0f || sample_freq <= 0.0f) {
         return; 
     }
 
@@ -42,7 +42,9 @@ const bandwidth_half: bandwidth / 2.0f
 const sample_freq_ang_inv: 2.0f * M_PI / sample_freq
 */
 {
-    // doesn't check for invalid bandwidth or sample_freq
+    if (bandwidth_half <= 0.0f || notch_freq <= 0.0f) {
+        return; 
+    }
 
     float omega = notch_freq * sample_freq_ang_inv;
     float omega_sin = sinf(omega);

@@ -48,8 +48,8 @@ namespace gnc
         float max_blade_angle = 0.30f; // virtual angle
 
         // sysid vars
-        constexpr float TORQUE_COEFF_TOP = 0.016645f;
-        constexpr float TORQUE_COEFF_BOT = 0.015037f;
+        constexpr float TORQUE_COEFF_TOP = 0.0192547f;
+        constexpr float TORQUE_COEFF_BOT = 0.0134282f;
         constexpr float THRUST_COEFF_TOP_INV = (1.0f / 15.3261f);
         constexpr float THRUST_COEFF_BOT_INV = (1.0f / 8.3460f);
         constexpr float TOP_MOTOR_ARM = 0.18f;

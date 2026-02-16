@@ -69,9 +69,7 @@ private:
     // returns the measurement innovation covariance S
     Eigen::Vector3f fuseAttitude3D(const Vector3f& innov,
         const float& measCov,
-        const Matrix<float, 3, dSTATE_SIZE>& H
-    );
-
+        const Matrix<float, 3, dSTATE_SIZE>& H, float innov_gate_std);
     void injectCorrection(const Eigen::Matrix<float, dSTATE_SIZE, 1>& dx);
 
     Eigen::Matrix<float, STATE_SIZE, 1> x_; // nominal state
