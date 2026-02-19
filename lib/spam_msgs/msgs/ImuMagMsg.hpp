@@ -14,6 +14,5 @@ struct ImuMagMsg
     Eigen::Vector3f mag = Eigen::Vector3f::Zero();
 };
 
-#endif // IMU_MAG_HPP
-
+#endif // IMU_MAG_MSG_HPP
 

@@ -6,7 +6,7 @@
 
 /**
  * @param timestamp Timestamp in microseconds
- * @param setpoint Normalized torque setpoint using Eigen Vector3f
+ * @param setpoint Body torque setpoint in Nm
  */
 struct TorqueSetpointMsg
 {

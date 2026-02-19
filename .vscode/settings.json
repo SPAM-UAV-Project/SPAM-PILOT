@@ -89,5 +89,7 @@
     "doxdocgen.c.triggerSequence": "/**",
     "doxdocgen.c.firstLine": "/**",
     "doxdocgen.c.lastLine": " */",
-    "doxdocgen.c.commentPrefix": " * "
+    "doxdocgen.c.commentPrefix": " * ",
+    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "python-envs.pythonProjects": []
 }
