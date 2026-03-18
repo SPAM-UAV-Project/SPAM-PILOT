@@ -50,7 +50,7 @@ namespace cdh {
             rcCommandMsg_.throttle = throttle_;
             rcCommandMsg_.arm_switch = (crsf_.rcToUs(crsf_.getChannel(5)) > 1500);
             rcCommandMsg_.emergency_stop = (crsf_.rcToUs(crsf_.getChannel(6)) > 1500);
-            rcCommandMsg_.flight_mode = (crsf_.rcToUs(crsf_.getChannel(7)) > 1800) ? FlightMode::RATE : FlightMode::STABILIZED;
+            rcCommandMsg_.flight_mode = (crsf_.rcToUs(crsf_.getChannel(7)) > 1800) ? FlightMode::RATE : FlightMode::STABILIZED; // TODO: make this a 3 state switch with stabilized, alt hold, and position hold
             rcCommandPub_.push(rcCommandMsg_);
 
             // print all channels raw
