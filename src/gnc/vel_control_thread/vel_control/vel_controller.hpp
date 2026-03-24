@@ -29,7 +29,7 @@ public:
                    float dt_ms);
     ~VelController() = default;
 
-    Eigen::Vector3f run(Eigen::Vector3f vel_setpoint, Eigen::Vector3f vel_measurement);
+    Eigen::Vector3f run(Eigen::Vector3f vel_setpoint, Eigen::Vector3f vel_measurement, Eigen::Quaternionf cur_attitude);
     void reset();
 
 private:

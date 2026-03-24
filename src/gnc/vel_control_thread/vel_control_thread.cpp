@@ -48,11 +48,19 @@ namespace gnc {
                 // first time arming, initialize yaw setpoint to current heading to ensure it doesnt tweak out         
             }
 
+            // convert RC to vel inputs
+            createVelSpFromRC(&vel_setpoint_msg_);
+
             // run controller
+            accel_setpoint_ = vel_controller.run(vel_setpoint_msg_.setpoint, ekf_states_msg_.velocity, ekf_states_msg_.attitude); 
 
             // convert accel to attitude setpoint
 
+            // TODO: somehow convert RC yaw input to a yaw feedforward term for the attitude setpoint. Can be done in this function or before? This fills in attitude_setpoint_msg
+
             // publish att setpoint
+            attitude_setpoint_.timestamp = micros();
+            attitude_setpoint_pub_.push(attitude_setpoint_); 
 
             // Serial.printf("rate setpoint: %.3f, %.3f, %.3f\r\n", rate_setpoint_.x(), rate_setpoint_.y(), rate_setpoint_.z());
             // task_timer.endCycle();
@@ -60,6 +68,22 @@ namespace gnc {
             //     task_timer.printStats();
             // }
             vTaskDelayUntil(&xLastWakeTime, xFrequency);
+        }
+    }
+
+    void VelControlThread::createVelSpFromRC(VelocitySetpointMsg *vel_setpoint_msg)
+    {
+        // extract roll and pitch channels to x,y vel in body frame
+        vel_setpoint_msg_.setpoint.x() = rc_command_msg_.pitch * max_manual_vel_xy;
+        vel_setpoint_msg_.setpoint.y() = rc_command_msg_.roll * max_manual_vel_xy;
+
+        // z vel - create a deadzone around center, scale linearly with throttle
+        // convert throttle from 0-1 to -1 to 1
+        rc_command_msg_.throttle = rc_command_msg_.throttle * 2.0f - 1.0f;
+        if (fabs(rc_command_msg_.throttle) < 0.1f) { 
+            vel_setpoint_msg->setpoint.z() = 0.f;
+        } else {
+            vel_setpoint_msg->setpoint.z() = rc_command_msg_.throttle * max_manual_vel_z;
         }
     }
 }

@@ -96,12 +96,13 @@ void StateManager::stateManagerTask() {
 
             delay(200);
             state_estimator_.init();
-
             radio_controller_.init();
 
             if (!sd_logger_.init()) {
                 Serial.println("[StateManager] Warning: SD Logger init failed!");
             }
+
+            sensors::optiflow::initOptiflow();
 
             // // // initialize controllers
             att_control_thread_.init();

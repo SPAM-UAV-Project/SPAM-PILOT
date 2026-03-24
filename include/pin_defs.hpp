@@ -20,6 +20,10 @@
 #define PIN_SD_MOSI  42
 #define PIN_SD_MISO  41
 
+// Optical Flow Serial pins
+#define PIN_OPTIFLOW_RX 38
+#define PIN_OPTIFLOW_TX 39
+
 
 
 #endif // PIN_DEFS_HPP

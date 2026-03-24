@@ -3,6 +3,7 @@
 
 #include "gnc/vel_control_thread/vel_control/vel_controller.hpp"
 #include "msgs/VelocitySetpointMsg.hpp"
+#include "msgs/AttitudeSetpointMsg.hpp"
 #include "msgs/EkfStatesMsg.hpp"
 #include "msgs/RcCommandMsg.hpp"
 #include "msgs/VehicleStateMsg.hpp"
@@ -26,13 +27,15 @@ namespace gnc {
         }
 
         void controllerTask(void *pvParameters);
+        void createVelSpFromRC(VelocitySetpointMsg *vel_setpoint_msg);
+        void createAttSetpointFromAccelSp(Eigen::Vector3f accel_setpoint, AttitudeSetpointMsg *att_setpoint_msg);
 
         // subscribers and publishers
         Topic<VelocitySetpointMsg>::Subscriber vel_setpoint_sub_;
         Topic<EkfStatesMsg>::Subscriber ekf_states_sub_;
         Topic<RcCommandMsg>::Subscriber rc_command_sub_;
         Topic<VehicleStateMsg>::Subscriber vehicle_state_sub_;
-        Topic<VelocitySetpointMsg>::Publisher vel_setpoint_debug_pub_; // this must NOT be published if vel_setpoint_sub is being called
+        Topic<AttitudeSetpointMsg>::Publisher attitude_setpoint_pub_; // this must NOT be published if vel_setpoint_sub is being called
         Topic<RateSetpointMsg>::Publisher rate_setpoint_pub_;
         Topic<ThrustSetpointMsg>::Publisher thrust_setpoint_pub_;
 
@@ -51,7 +54,11 @@ namespace gnc {
         float vel_integ_clamp_ = 0.5f;
         float vel_alpha_d_[3] = {0.0f, 0.0f, 0.0f};
         Eigen::Vector3f rpy_setpoint_{0.f, 0.f, NAN};
-        Eigen::Quaternionf attitude_setpoint_;
+        Eigen::Vector3f accel_setpoint_;
+        AttitudeSetpointMsg attitude_setpoint_;
+
+        float max_manual_vel_xy = 3.0f; // m/s
+        float max_manual_vel_z = 1.0f; // m/s
 
         float max_manual_throttle_force = -20.0f; // Newtons
 

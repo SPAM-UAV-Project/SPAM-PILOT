@@ -17,7 +17,7 @@ struct EkfStatesMsg
     uint64_t timestamp = 0;
     Eigen::Vector3f position = Eigen::Vector3f::Zero();
     Eigen::Vector3f velocity = Eigen::Vector3f::Zero();
-    Eigen::Quaternionf attitude = Eigen::Quaternionf(1.0f, 0.0f, 0.0f, 0.0f);    
+    Eigen::Quaternionf attitude = Eigen::Quaternionf(1.0f, 0.0f, 0.0f, 0.0f); // wxyz    
     Eigen::Vector3f accel_bias = Eigen::Vector3f::Zero();
     Eigen::Vector3f gyro_bias = Eigen::Vector3f::Zero();
 };

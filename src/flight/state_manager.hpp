@@ -3,6 +3,7 @@
 
 #include "sensors/imu/imu.hpp"
 #include "sensors/encoder/encoder.hpp"
+#include "sensors/optiflow/optiflow.hpp"
 #include "gnc/state_estimation/state_estimator.hpp"
 #include "gnc/att_control_thread/att_control_thread.hpp"
 #include "gnc/rate_control_thread/rate_control_thread.hpp"

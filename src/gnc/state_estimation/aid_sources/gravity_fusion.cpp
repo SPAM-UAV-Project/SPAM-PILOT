@@ -27,7 +27,8 @@ void ESKF::fuseGravity(const Vector3f& accel_meas, const Eigen::Vector3f& accel_
         return;
     }
 
-    // get innovation
+    // get innovation 
+    // measurement model - C_b_n * g_nav to convert known gravity to body frame
     Eigen::Vector3f gravity_pred = current_quat.toRotationMatrix().transpose() * Eigen::Vector3f(0.0f, 0.0f, -1.0f);
     Eigen::Vector3f innov = accel_corrected - gravity_pred;
 

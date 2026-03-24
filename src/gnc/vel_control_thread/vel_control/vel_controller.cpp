@@ -11,12 +11,15 @@ VelController::VelController(float kp[3], float ki[3], float kd[3], float alpha_
       pid_z_(dt_ms * 0.001f, out_max, out_min, 1.0f, kp[2], ki[2], kd[2], integ_clamp_z, alpha_d[2])
 {}
 
-Eigen::Vector3f VelController::run(Eigen::Vector3f vel_setpoint, Eigen::Vector3f vel_measurement)
+Eigen::Vector3f VelController::run(Eigen::Vector3f vel_setpoint, Eigen::Vector3f vel_measurement, Eigen::Quaternionf cur_attitude)
 {
+    // transform EKF nav velocity into body frame
+    Eigen::Vector3f vel_meas_body = cur_attitude.toRotationMatrix().transpose() * vel_measurement;
+
     return {
-        pid_x_.run(vel_setpoint.x(), vel_measurement.x()),
-        pid_y_.run(vel_setpoint.y(), vel_measurement.y()),
-        pid_z_.run(vel_setpoint.z(), vel_measurement.z())
+        pid_x_.run(vel_setpoint.x(), vel_meas_body.x()),
+        pid_y_.run(vel_setpoint.y(), vel_meas_body.y()),
+        pid_z_.run(vel_setpoint.z(), vel_meas_body.z())
     };
 }
 
