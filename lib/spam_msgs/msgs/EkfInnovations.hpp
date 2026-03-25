@@ -7,9 +7,12 @@
 /**
  * @param timestamp Timestamp in microseconds
  * @param mag_innov Magnetometer innovation
+ * @param mag_innov Magnetometer innovation
  * @param mag_innov_cov Magnetometer innovation covariance
  * @param gravity_innov Gravity innovation
  * @param gravity_innov_cov Gravity innovation covariance
+ * @param optiflow_innov Optical flow innovation
+ * @param optiflow_innov_cov Optical flow innovation covariance
  */
 struct EkfInnovationsMsg
 {
@@ -18,6 +21,8 @@ struct EkfInnovationsMsg
     Eigen::Vector3f mag_innov_cov = Eigen::Vector3f::Zero();
     Eigen::Vector3f gravity_innov = Eigen::Vector3f::Zero();
     Eigen::Vector3f gravity_innov_cov = Eigen::Vector3f::Zero();
+    Eigen::Vector3f optiflow_innov = Eigen::Vector3f::Zero();
+    Eigen::Vector3f optiflow_innov_cov = Eigen::Vector3f::Zero();
 };
 
 #endif // EKF_INNOVATIONS_MSG_HPP

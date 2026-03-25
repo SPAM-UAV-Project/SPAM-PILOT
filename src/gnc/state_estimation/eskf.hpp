@@ -54,8 +54,9 @@ public:
     void initSensorNoise(const float accel_noise_var, const float accel_walk_var,
                          const float gyro_noise_var, const float gyro_walk_var);
     void predictStates(const ImuIntegratedMsg& imu_msg);
-    void fuseMag(const Eigen::Vector3f& magMeas, const float& magMeasCov);
-    void fuseGravity(const Eigen::Vector3f& imu_integrated_msg, const Eigen::Vector3f& accel_filtered, const float& measCov);
+    void fuseMag(const Eigen::Vector3f& mag_meas, const float& R);
+    void fuseGravity(const Eigen::Vector3f& imu_integrated_msg, const Eigen::Vector3f& accel_filtered, const float& R);
+    void fuseOptiflow(const Eigen::Vector3f& vel_meas, const float& R);
 
     Eigen::VectorXf getStateVariable(int id, int length) {
         return x_.segment(id, length);
@@ -67,7 +68,7 @@ public:
 
 private:
     // returns the measurement innovation covariance S
-    Eigen::Vector3f fuseAttitude3D(const Vector3f& innov,
+    Eigen::Vector3f fuse3D(const Vector3f& innov,
         const float& measCov,
         const Matrix<float, 3, dSTATE_SIZE>& H, float innov_gate_std);
     void injectCorrection(const Eigen::Matrix<float, dSTATE_SIZE, 1>& dx);

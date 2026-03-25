@@ -3,12 +3,12 @@
 
 namespace gnc {
 
-void ESKF::fuseMag(const Eigen::Vector3f& magMeas, const float& R)
+void ESKF::fuseMag(const Eigen::Vector3f& mag_meas, const float& R)
 {
     // predicted body mag measurement (measurement model)
     Eigen::Quaternionf current_quat(x_.segment<4>(QUAT_ID));
 
-    Eigen::Vector3f mag_meas_nav = current_quat.toRotationMatrix() * magMeas; // rotate measured mag to nav frame // current quat takes body to nav
+    Eigen::Vector3f mag_meas_nav = current_quat.toRotationMatrix() * mag_meas; // rotate measured mag to nav frame // current quat takes body to nav
     
     // this should be exactly north, if its off, then we have an innovation
     float meas_yaw = atan2f(-mag_meas_nav.y(), mag_meas_nav.x()); // yaw measurement from north
@@ -55,10 +55,10 @@ void ESKF::fuseMag(const Eigen::Vector3f& magMeas, const float& R)
     // dq_dtheta *= 0.5f;
 
 #ifdef DEBUG_MAG_FUSION
-    print3DUpdate(magMeas, mag_pred, innov, current_quat);
+    print3DUpdate(mag_meas, mag_meas_nav, innov, current_quat);
 #endif
 
-    Eigen::Vector3f S = fuseAttitude3D(innov, R, H, 1.0f); // 1.0f innov gate (very bad noise in myhal arena (full of rebar!!))
+    Eigen::Vector3f S = fuse3D(innov, R, H, 1.0f); // 1.0f innov gate (very bad noise in myhal arena (full of rebar!!))
 
     ekf_innovations_msg.timestamp = micros();
     ekf_innovations_msg.mag_innov = innov;

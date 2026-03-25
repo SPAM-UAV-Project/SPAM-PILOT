@@ -8,7 +8,7 @@
 #include <Arduino.h>
 #include "sym_minimal.h"
 #include "gnc/state_estimation/math/generated_code/cpp/symforce/gnc/predict_states.h"
-#include "gnc/state_estimation/math/generated_code/cpp/symforce/gnc/compute_attitude_innov_var.h"
+//#include "gnc/state_estimation/math/generated_code/cpp/symforce/gnc/compute_attitude_innov_var.h"
 
 
 namespace gnc {
@@ -137,42 +137,42 @@ void ESKF::predictStates(const ImuIntegratedMsg& imu_msg)
     P_ = pred_P;
 }
 
-Eigen::Vector3f ESKF::fuseAttitude3D(const Vector3f& innov,
+Eigen::Vector3f ESKF::fuse3D(const Vector3f& innov,
     const float& R,
     const Matrix<float, 3, dSTATE_SIZE>& H, float innov_gate_std
 )
 {    
     Eigen::Vector3f S_log;
 
-    // loop through roll pitch yaw
+    // loop through 3 axis
     for (unsigned axis_idx = 0; axis_idx < 3; axis_idx++) {
         
         // Compute Innovation Variance (S)
-        Eigen::Vector3f S_all;
-        gnc::ComputeAttitudeInnovVar<float>(P_, H, R, &S_all);
-        // invert s to avoid division by 15 elements
-        if (S_all(axis_idx) < 1e-6f) {
-            S_all(axis_idx) = 1e-6f;
-        }
-        float s_scalar_inv = 1.0f / S_all(axis_idx);
-        S_log(axis_idx) = S_all(axis_idx);
+        float S_i;
+        Eigen::Matrix<float, dSTATE_SIZE, 1> PH_row = P_ * H.row(axis_idx).transpose(); // 15x1 vector
+        S_i = H.row(axis_idx) * PH_row + R; // compute scalar innovation variance
 
-        if (std::abs(innov(axis_idx)) > innov_gate_std * std::sqrt(S_all(axis_idx))) {
+        if (S_i< 1e-6f) {
+            S_i = 1e-6f;
+        }
+
+        float s_scalar_inv = 1.0f / S_i;
+        S_log(axis_idx) = S_i;
+
+        if (std::abs(innov(axis_idx)) > innov_gate_std * std::sqrt(S_i)) {
             // innovation is too large, likely a bad measurement, skip this axis
             continue;
         }
 
         // find kalman gain for this axis
-        Eigen::Matrix<float, dSTATE_SIZE, 1> K = P_ * H.row(axis_idx).transpose() * s_scalar_inv;
+        Eigen::Matrix<float, dSTATE_SIZE, 1> K = PH_row * s_scalar_inv;
 
         // inject correction
         Eigen::Matrix<float, dSTATE_SIZE, 1> correction = K * innov(axis_idx);
         injectCorrection(correction);
 
         // Efficient implementation of the Joseph stabilized covariance update -> From PX4 Firmware
-        // From "G. J. Bierman. Factorization Methods for Discrete Sequential Estimation. Academic Press, Dover Publications, New York, 1977, 2006"
-        Eigen::VectorXf PH_row = P_ * H.row(axis_idx).transpose(); // 15x1 vector
-
+        // From "G. J. Bierman. Factorization Methods for Discrete Sequential Estimation. Academic Press, Dover Publications, New York, 1977, 2006" 
         // Unstabilized update P = P - K*H*P
         for (unsigned i = 0; i < dSTATE_SIZE; i++) {
             for (unsigned j = 0; j < dSTATE_SIZE; j++) {
@@ -198,7 +198,10 @@ void ESKF::injectCorrection(const Eigen::Matrix<float, dSTATE_SIZE, 1>& dx)
     x_.segment<3>(POS_ID) += dx.block<3, 1>(dPOS_ID, 0);
     x_.segment<3>(VEL_ID) += dx.block<3, 1>(dVEL_ID, 0);
     Eigen::Vector3f dtheta = dx.block<3, 1>(dTHETA_ID, 0);
-    Eigen::Quaternionf q_dtheta = Eigen::Quaternionf(Eigen::AngleAxisf(dtheta.norm(), dtheta.normalized()));
+    Eigen::Quaternionf q_dtheta = Eigen::Quaternionf::Identity();
+    if (dtheta.norm() > 1e-9f) {
+        q_dtheta = Eigen::Quaternionf(Eigen::AngleAxisf(dtheta.norm(), dtheta.normalized()));
+    }
     Eigen::Quaternionf current_quat(x_.segment<4>(QUAT_ID));
     x_.segment<4>(QUAT_ID) = (current_quat * q_dtheta).normalized().coeffs();
     x_.segment<3>(AB_ID) += dx.block<3, 1>(dAB_ID, 0);
